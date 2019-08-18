@@ -1,0 +1,8 @@
+{
+  "paths": {
+    "alertingUi": "./"
+  },
+  "translations": [
+    "translations/zh-CN.json"
+  ]
+}
