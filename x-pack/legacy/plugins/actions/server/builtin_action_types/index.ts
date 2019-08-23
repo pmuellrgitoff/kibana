@@ -11,6 +11,7 @@ import { actionType as slackActionType } from './slack';
 import { actionType as emailActionType } from './email';
 import { actionType as indexActionType } from './es_index';
 import { actionType as pagerDutyActionType } from './pagerduty';
+import { actionType as webhookActionType } from './webhook';
 
 export function registerBuiltInActionTypes(actionTypeRegistry: ActionTypeRegistry) {
   actionTypeRegistry.register(serverLogActionType);
@@ -18,4 +19,5 @@ export function registerBuiltInActionTypes(actionTypeRegistry: ActionTypeRegistr
   actionTypeRegistry.register(emailActionType);
   actionTypeRegistry.register(indexActionType);
   actionTypeRegistry.register(pagerDutyActionType);
+  actionTypeRegistry.register(webhookActionType);
 }
