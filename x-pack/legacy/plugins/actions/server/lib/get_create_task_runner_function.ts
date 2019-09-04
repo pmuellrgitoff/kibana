@@ -15,6 +15,7 @@ import {
   GetServicesFunction,
   SpaceIdToNamespaceFunction,
 } from '../types';
+import { EventLoggerMock } from '../../../../../plugins/event_log/server/event_logger_mock';
 
 interface CreateTaskRunnerFunctionOptions {
   getServices: GetServicesFunction;
@@ -72,6 +73,7 @@ export function getCreateTaskRunnerFunction({
           actionId,
           services: getServices(fakeRequest),
           params,
+          eventLogger: new EventLoggerMock(),
         });
         if (executorResult.status === 'error') {
           // Task manager error handler only kicks in when an error thrown (at this time)

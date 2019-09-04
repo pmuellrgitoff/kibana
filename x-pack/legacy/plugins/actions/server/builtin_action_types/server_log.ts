@@ -9,7 +9,7 @@ import { schema, TypeOf } from '@kbn/config-schema';
 
 import { ActionType, ActionTypeExecutorOptions, ActionTypeExecutorResult } from '../types';
 
-const DEFAULT_TAGS = ['info', 'alerting'];
+const DEFAULT_TAGS = ['info', 'actions'];
 
 // params definition
 

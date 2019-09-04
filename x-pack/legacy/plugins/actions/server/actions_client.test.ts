@@ -12,10 +12,12 @@ import { ExecutorType } from './types';
 import { taskManagerMock } from '../../task_manager/task_manager.mock';
 import { SavedObjectsClientMock } from '../../../../../src/core/server/mocks';
 import { encryptedSavedObjectsMock } from '../../encrypted_saved_objects/server/plugin.mock';
+import { EventLoggerMock } from '../../../../plugins/event_log/server/event_logger_mock';
 
 const savedObjectsClient = SavedObjectsClientMock.create();
 
 const mockTaskManager = taskManagerMock.create();
+const eventLogger = new EventLoggerMock();
 
 const mockEncryptedSavedObjectsPlugin = encryptedSavedObjectsMock.create();
 
@@ -63,6 +65,7 @@ describe('create()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.create.mockResolvedValueOnce(savedObjectCreateResult);
     const result = await actionsClient.create({
@@ -98,6 +101,7 @@ describe('create()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     actionTypeRegistry.register({
       id: 'my-action-type',
@@ -128,6 +132,7 @@ describe('create()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     await expect(
       actionsClient.create({
@@ -153,6 +158,7 @@ describe('create()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.create.mockResolvedValueOnce({
       id: '1',
@@ -216,6 +222,7 @@ describe('get()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.get.mockResolvedValueOnce({
       id: '1',
@@ -260,6 +267,7 @@ describe('find()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.find.mockResolvedValueOnce(expectedResult);
     const result = await actionsClient.find({});
@@ -294,6 +302,13 @@ describe('delete()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
+    });
+    savedObjectsClient.get.mockResolvedValueOnce({
+      id: '1',
+      type: 'type',
+      attributes: {},
+      references: [],
     });
     savedObjectsClient.delete.mockResolvedValueOnce(expectedResult);
     const result = await actionsClient.delete({ id: '1' });
@@ -319,6 +334,7 @@ describe('update()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.get.mockResolvedValueOnce({
       id: '1',
@@ -380,6 +396,7 @@ describe('update()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     actionTypeRegistry.register({
       id: 'my-action-type',
@@ -423,6 +440,7 @@ describe('update()', () => {
     const actionsClient = new ActionsClient({
       actionTypeRegistry,
       savedObjectsClient,
+      eventLogger,
     });
     savedObjectsClient.get.mockResolvedValueOnce({
       id: 'my-action',

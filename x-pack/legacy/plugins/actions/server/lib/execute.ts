@@ -12,14 +12,17 @@ import {
 } from '../types';
 import { validateParams, validateConfig, validateSecrets } from './validate_with_schema';
 import { EncryptedSavedObjectsPlugin } from '../../../encrypted_saved_objects';
+import { IEventLogger } from '../../../../../plugins/event_log/server/types';
+import { events, IEventData } from '../events';
 
-interface ExecuteOptions {
+export interface ExecuteOptions {
   actionId: string;
   namespace?: string;
   services: Services;
   params: Record<string, any>;
   encryptedSavedObjectsPlugin: EncryptedSavedObjectsPlugin;
   actionTypeRegistry: ActionTypeRegistryContract;
+  eventLogger: IEventLogger;
 }
 
 export async function execute({
@@ -29,6 +32,7 @@ export async function execute({
   services,
   params,
   encryptedSavedObjectsPlugin,
+  eventLogger,
 }: ExecuteOptions): Promise<ActionTypeExecutorResult> {
   // Ensure user can read the action before processing
   const {
@@ -47,11 +51,15 @@ export async function execute({
   let validatedConfig;
   let validatedSecrets;
 
+  const eventData: IEventData = { actionId, actionTypeId, config, params, description };
+
   try {
     validatedParams = validateParams(actionType, params);
     validatedConfig = validateConfig(actionType, config);
     validatedSecrets = validateSecrets(actionType, secrets);
   } catch (err) {
+    eventData.message = err.message;
+    eventLogger.logEvent(events.executionFailed(eventData));
     return { status: 'error', message: err.message, retry: false };
   }
 
@@ -67,6 +75,9 @@ export async function execute({
       secrets: validatedSecrets,
     });
   } catch (err) {
+    eventData.message = err.message;
+    eventLogger.logEvent(events.executionFailed(eventData));
+
     services.log(
       ['warning', 'x-pack', 'actions'],
       `action executed unsuccessfully: ${actionLabel} - ${err.message}`
@@ -74,10 +85,21 @@ export async function execute({
     throw err;
   }
 
-  services.log(['debug', 'x-pack', 'actions'], `action executed successfully: ${actionLabel}`);
-
   // return basic response if none provided
-  if (result == null) return { status: 'ok' };
+  if (result == null) result = { status: 'ok' };
+  eventData.result = result;
+
+  // log the execution
+  if (result.status !== 'ok') {
+    eventLogger.logEvent(events.executionFailed(eventData));
+    services.log(
+      ['debug', 'x-pack', 'actions'],
+      `action executed unsuccessfully: ${actionLabel}: ${JSON.stringify(result)}`
+    );
+  } else {
+    eventLogger.logEvent(events.executed(eventData));
+    services.log(['debug', 'x-pack', 'actions'], `action executed successfully: ${actionLabel}`);
+  }
 
   return result;
 }
