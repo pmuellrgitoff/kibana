@@ -53,6 +53,7 @@ export function executeRoute({ server, actionTypeRegistry, getServices }: Execut
       const { id } = request.params;
       const { params } = request.payload;
       const namespace = server.plugins.spaces && server.plugins.spaces.getSpaceId(request);
+      const actionsClient = request.getActionsClient!();
       const result = await execute({
         params,
         actionTypeRegistry,
@@ -60,6 +61,7 @@ export function executeRoute({ server, actionTypeRegistry, getServices }: Execut
         namespace: namespace === 'default' ? undefined : namespace,
         services: getServices(request),
         encryptedSavedObjectsPlugin: server.plugins.encrypted_saved_objects!,
+        eventLogger: actionsClient.eventLogger,
       });
       return result;
     },

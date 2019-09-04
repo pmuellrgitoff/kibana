@@ -8,6 +8,8 @@ import { SavedObjectsClientContract, SavedObjectAttributes, SavedObject } from '
 import { ActionTypeRegistry } from './action_type_registry';
 import { validateConfig, validateSecrets } from './lib';
 import { ActionResult } from './types';
+import { IEventLogger } from '../../../../plugins/event_log/server/types';
+import { events, IEventData } from './events';
 
 interface ActionUpdate extends SavedObjectAttributes {
   description: string;
@@ -49,6 +51,7 @@ interface FindResult {
 interface ConstructorOptions {
   actionTypeRegistry: ActionTypeRegistry;
   savedObjectsClient: SavedObjectsClientContract;
+  eventLogger: IEventLogger;
 }
 
 interface UpdateOptions {
@@ -59,10 +62,12 @@ interface UpdateOptions {
 export class ActionsClient {
   private readonly savedObjectsClient: SavedObjectsClientContract;
   private readonly actionTypeRegistry: ActionTypeRegistry;
+  public readonly eventLogger: IEventLogger;
 
-  constructor({ actionTypeRegistry, savedObjectsClient }: ConstructorOptions) {
-    this.actionTypeRegistry = actionTypeRegistry;
-    this.savedObjectsClient = savedObjectsClient;
+  constructor(params: ConstructorOptions) {
+    this.actionTypeRegistry = params.actionTypeRegistry;
+    this.savedObjectsClient = params.savedObjectsClient;
+    this.eventLogger = params.eventLogger;
   }
 
   /**
@@ -74,12 +79,23 @@ export class ActionsClient {
     const validatedActionTypeConfig = validateConfig(actionType, config);
     const validatedActionTypeSecrets = validateSecrets(actionType, secrets);
 
-    const result = await this.savedObjectsClient.create('action', {
-      actionTypeId,
-      description,
-      config: validatedActionTypeConfig as SavedObjectAttributes,
-      secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-    });
+    const eventData: IEventData = { actionTypeId, config, description };
+    let result;
+    try {
+      result = await this.savedObjectsClient.create('action', {
+        actionTypeId,
+        description,
+        config: validatedActionTypeConfig as SavedObjectAttributes,
+        secrets: validatedActionTypeSecrets as SavedObjectAttributes,
+      });
+    } catch (err) {
+      eventData.message = err.message;
+      this.eventLogger.logEvent(events.createFailed(eventData));
+      throw err;
+    }
+
+    eventData.actionId = result.id;
+    this.eventLogger.logEvent(events.created(eventData));
 
     return {
       id: result.id,
@@ -99,14 +115,23 @@ export class ActionsClient {
     const actionType = this.actionTypeRegistry.get(actionTypeId);
     const validatedActionTypeConfig = validateConfig(actionType, config);
     const validatedActionTypeSecrets = validateSecrets(actionType, secrets);
+    const eventData: IEventData = { actionId: id, actionTypeId, config, description };
 
-    const result = await this.savedObjectsClient.update('action', id, {
-      actionTypeId,
-      description,
-      config: validatedActionTypeConfig as SavedObjectAttributes,
-      secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-    });
+    let result;
+    try {
+      result = await this.savedObjectsClient.update('action', id, {
+        actionTypeId,
+        description,
+        config: validatedActionTypeConfig as SavedObjectAttributes,
+        secrets: validatedActionTypeSecrets as SavedObjectAttributes,
+      });
+    } catch (err) {
+      eventData.message = err.message;
+      this.eventLogger.logEvent(events.updateFailed(eventData));
+      throw err;
+    }
 
+    this.eventLogger.logEvent(events.updated(eventData));
     return {
       id,
       actionTypeId: result.attributes.actionTypeId as string,
@@ -150,7 +175,26 @@ export class ActionsClient {
    * Delete action
    */
   public async delete({ id }: { id: string }) {
-    return await this.savedObjectsClient.delete('action', id);
+    // need to get the action to write to the event log
+    const action = await this.get({ id });
+
+    const eventData: IEventData = {
+      actionId: id,
+      actionTypeId: action.actionTypeId,
+      config: action.config,
+      description: action.description,
+    };
+
+    let result;
+    try {
+      result = await this.savedObjectsClient.delete('action', id);
+    } catch (err) {
+      this.eventLogger.logEvent(events.deleteFailed(eventData));
+      throw err;
+    }
+
+    this.eventLogger.logEvent(events.deleted(eventData));
+    return result;
   }
 }
 

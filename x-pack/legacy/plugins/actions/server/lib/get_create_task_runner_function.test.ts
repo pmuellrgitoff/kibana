@@ -89,6 +89,7 @@ test('executes the task by calling the executor with proper parameters', async (
     encryptedSavedObjectsPlugin: mockedEncryptedSavedObjectsPlugin,
     services: expect.anything(),
     params: { baz: true },
+    eventLogger: expect.anything(),
   });
 });
 
