@@ -9,6 +9,8 @@ import { execute } from './execute';
 import { actionTypeRegistryMock } from '../action_type_registry.mock';
 import { SavedObjectsClientMock } from '../../../../../../src/core/server/mocks';
 import { encryptedSavedObjectsMock } from '../../../encrypted_saved_objects/server/plugin.mock';
+import { EventLoggerMock } from '../../../../../plugins/event_log/server/event_logger_mock';
+import { ExecuteOptions } from './execute';
 
 const savedObjectsClient = SavedObjectsClientMock.create();
 
@@ -22,7 +24,7 @@ function getServices() {
 const encryptedSavedObjectsPlugin = encryptedSavedObjectsMock.create();
 const actionTypeRegistry = actionTypeRegistryMock.create();
 
-const executeParams = {
+const executeParams: ExecuteOptions = {
   actionId: '1',
   namespace: 'some-namespace',
   services: getServices(),
@@ -31,6 +33,7 @@ const executeParams = {
   },
   actionTypeRegistry,
   encryptedSavedObjectsPlugin,
+  eventLogger: new EventLoggerMock(),
 };
 
 beforeEach(() => jest.resetAllMocks());

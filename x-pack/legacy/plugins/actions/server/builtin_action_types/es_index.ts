@@ -9,7 +9,6 @@ import { schema, TypeOf } from '@kbn/config-schema';
 
 import { nullableType } from './lib/nullable';
 import { ActionType, ActionTypeExecutorOptions, ActionTypeExecutorResult } from '../types';
-
 // config definition
 
 export type ActionTypeConfigType = TypeOf<typeof ConfigSchema>;

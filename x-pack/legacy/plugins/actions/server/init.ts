@@ -25,6 +25,7 @@ import {
 import { registerBuiltInActionTypes } from './builtin_action_types';
 import { SpacesPlugin } from '../../spaces';
 import { createOptionalPlugin } from '../../../server/lib/optional_plugin';
+import { IEventLog } from '../../../../plugins/event_log/server/types';
 
 // Extend PluginProperties to indicate which plugins are guaranteed to exist
 // due to being marked as dependencies
@@ -116,6 +117,9 @@ export function init(server: Server) {
     getActionsConfigurationUtilities(config.get('xpack.actions') as ActionsKibanaConfig)
   );
 
+  const eventLog: IEventLog = (server as any).newPlatform.setup.plugins.event_log;
+  eventLog.registerEventType('action', ['created', 'deleted', 'updated', 'executed']);
+
   // Routes
   createRoute(server);
   deleteRoute(server);
@@ -138,11 +142,20 @@ export function init(server: Server) {
 
   // Expose functions to server
   server.decorate('request', 'getActionsClient', function() {
-    const request = this;
+    const request: Hapi.Request = this;
+    const username = getRequestUsername(request);
+    const spaceId = getRequestSpaceId(server, request);
     const savedObjectsClient = request.getSavedObjectsClient();
+    const eventLogger = eventLog.getLogger({
+      pluginId: 'actions',
+      type: 'action',
+      username,
+      spaceId,
+    });
     const actionsClient = new ActionsClient({
       savedObjectsClient,
       actionTypeRegistry,
+      eventLogger,
     });
     return actionsClient;
   });
@@ -152,4 +165,21 @@ export function init(server: Server) {
     listTypes: actionTypeRegistry.list.bind(actionTypeRegistry),
   };
   server.expose(exposedFunctions);
+}
+
+function getRequestUsername(request: any): string | undefined {
+  if (request == null) return;
+
+  const auth = request.auth;
+  if (auth == null) return;
+
+  const credentials = auth.credentials;
+  if (credentials == null) return;
+
+  return credentials.username;
+}
+
+function getRequestSpaceId(server: Hapi.Server, request: Hapi.Request): string | undefined {
+  if (server.plugins.spaces == null) return;
+  return server.plugins.spaces.getSpaceId(request);
 }
