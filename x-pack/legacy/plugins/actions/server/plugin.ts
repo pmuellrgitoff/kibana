@@ -33,6 +33,13 @@ import {
   listActionTypesRoute,
   getExecuteActionRoute,
 } from './routes';
+import { IEventLogger } from '../../../../plugins/event_log/server/types';
+
+const EVENT_LOG_PROVIDER = 'actions';
+export const EVENT_LOG_ACTIONS = {
+  execute: 'execute',
+  executeViaHttp: 'execute-via-http',
+};
 
 export interface PluginSetupContract {
   registerType: ActionTypeRegistry['register'];
@@ -54,6 +61,7 @@ export class Plugin {
   private actionTypeRegistry?: ActionTypeRegistry;
   private actionExecutor?: ActionExecutor;
   private defaultKibanaIndex?: string;
+  private eventLogger?: IEventLogger;
 
   constructor(initializerContext: ActionsPluginInitializerContext) {
     this.logger = initializerContext.logger.get('plugins', 'alerting');
@@ -105,6 +113,11 @@ export class Plugin {
     plugins.encryptedSavedObjects.registerType({
       type: 'action_task_params',
       attributesToEncrypt: new Set(['apiKey']),
+    });
+
+    plugins.event_log.registerProviderActions(EVENT_LOG_PROVIDER, Object.values(EVENT_LOG_ACTIONS));
+    this.eventLogger = plugins.event_log.getLogger({
+      event: { provider: EVENT_LOG_PROVIDER },
     });
 
     const actionExecutor = new ActionExecutor();
@@ -171,6 +184,7 @@ export class Plugin {
       getServices,
       encryptedSavedObjectsPlugin: plugins.encryptedSavedObjects,
       actionTypeRegistry: actionTypeRegistry!,
+      eventLogger: this.eventLogger!,
     });
     taskRunnerFactory!.initialize({
       encryptedSavedObjectsPlugin: plugins.encryptedSavedObjects,

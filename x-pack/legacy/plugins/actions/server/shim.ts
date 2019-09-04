@@ -22,6 +22,7 @@ import {
   LoggerFactory,
   SavedObjectsLegacyService,
 } from '../../../../../src/core/server';
+import { IEventLogService } from '../../../../plugins/event_log/server/types';
 
 // Extend PluginProperties to indicate which plugins are guaranteed to exist
 // due to being marked as dependencies
@@ -76,6 +77,7 @@ export interface ActionsPluginsSetup {
   task_manager: TaskManagerSetupContract;
   xpack_main: XPackMainPluginSetupContract;
   encryptedSavedObjects: EncryptedSavedObjectsSetupContract;
+  event_log: IEventLogService;
 }
 export interface ActionsPluginsStart {
   security?: SecurityPluginStartContract;
@@ -133,6 +135,7 @@ export function shim(
     xpack_main: server.plugins.xpack_main,
     encryptedSavedObjects: newPlatform.setup.plugins
       .encryptedSavedObjects as EncryptedSavedObjectsSetupContract,
+    event_log: newPlatform.setup.plugins.event_log as IEventLogService,
   };
 
   const pluginsStart: ActionsPluginsStart = {
