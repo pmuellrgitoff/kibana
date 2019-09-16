@@ -38,6 +38,10 @@ export class EventLog implements IEventLog {
     this.clusterClient = clusterClient;
   }
 
+  async legacyWaitForES(): Promise<void> {}
+
+  legacySetSavedObjects({ savedObjects, elasticsearch }: any): void {}
+
   isEnabled() {
     return this.clusterClient != null;
   }

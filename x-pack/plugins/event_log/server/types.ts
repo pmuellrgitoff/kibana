@@ -9,6 +9,9 @@ import { schema } from './schema';
 
 // the object exposed by plugin.setup()
 export interface IEventLog {
+  legacyWaitForES(): Promise<void>;
+  legacySetSavedObjects({ savedObjects, elasticsearch }: any): void;
+
   registerEventType(eventType: string, subTypes: string[]): void;
   getEventTypes(): Map<string, Set<string>>;
 
