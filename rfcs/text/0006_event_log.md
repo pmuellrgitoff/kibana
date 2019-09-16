@@ -21,6 +21,13 @@ specialized queries (perhaps would be required for UI purposes).
 The current clients for the event log are the actions and alerting plugins,
 however the event log has nothing specific to them, and is general purpose.
 
+We currently assume that there may be many events logged, and that customers
+may not be interested in "old" events, and so to keep the event log from
+consuming too much disk space, we'll set it up with ILM and some kind of
+reasonable default policy that can be customized by the user.  This implies
+also the use of rollver, setting a write index alias upon rollover, and
+that searches for events will be done via an ES index pattern to search
+across event log indices with a wildcard.
 
 # Basic example
 
@@ -117,6 +124,63 @@ function getIndexTemplateBody(indexPattern: string) {
   };
 }
 ```
+
+## ILM setup
+
+Setup for ILM will need to be done once, launched during plugin setup/start,
+and event logging requests will need to be blocked until this is complete.
+
+Here's a sketch of how this would be set up, based on
+[getting started with ILM doc][] and [write index alias behavior][]:
+
+[getting started with ILM doc]: https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started-index-lifecycle-management.html
+[write index alias behavior]: https://www.elastic.co/guide/en/elasticsearch/reference/master/indices-rollover-index.html#indices-rollover-is-write-index
+
+```
+PUT _ilm/policy/event_log_policy   
+{
+  "policy": {                       
+    "phases": {
+      "hot": {                      
+        "actions": {
+          "rollover": {             
+            "max_size": "5GB",
+            "max_age": "30d"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+```
+PUT _template/event_log_template
+{
+  "index_patterns": [".event-log-*"],                 
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "index.lifecycle.name": "event_log_policy",      
+    "index.lifecycle.rollover_alias": ".event-log"    
+  }
+}
+```
+
+```
+PUT .event-log-000001
+{
+  "aliases": {
+    ".event-log": {
+      "is_write_index": true
+    }
+  }
+}
+```
+
+After this set up, writing to `.event-log` will write to the most recent
+index created, and searching in `.event-log` will search across `.event-log-*`.
+
 
 # Drawbacks
 
