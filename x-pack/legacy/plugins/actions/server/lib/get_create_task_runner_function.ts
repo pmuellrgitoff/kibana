@@ -15,7 +15,7 @@ import {
   GetServicesFunction,
   SpaceIdToNamespaceFunction,
 } from '../types';
-import { EventLoggerMock } from '../../../../../plugins/event_log/server/event_logger_mock';
+import { EventLoggerMock } from '../../../event_log/server/event_logger_mock';
 
 interface CreateTaskRunnerFunctionOptions {
   getServices: GetServicesFunction;

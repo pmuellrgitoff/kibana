@@ -25,7 +25,7 @@ import {
 import { registerBuiltInActionTypes } from './builtin_action_types';
 import { SpacesPlugin } from '../../spaces';
 import { createOptionalPlugin } from '../../../server/lib/optional_plugin';
-import { IEventLog } from '../../../../plugins/event_log/server/types';
+import { IEventLog } from '../../event_log/server/types';
 
 // Extend PluginProperties to indicate which plugins are guaranteed to exist
 // due to being marked as dependencies

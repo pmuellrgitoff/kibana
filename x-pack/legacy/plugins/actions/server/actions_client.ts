@@ -8,7 +8,7 @@ import { SavedObjectsClientContract, SavedObjectAttributes, SavedObject } from '
 import { ActionTypeRegistry } from './action_type_registry';
 import { validateConfig, validateSecrets } from './lib';
 import { ActionResult } from './types';
-import { IEventLogger } from '../../../../plugins/event_log/server/types';
+import { IEventLogger } from '../../event_log/server/types';
 import { events, IEventData } from './events';
 
 interface ActionUpdate extends SavedObjectAttributes {
