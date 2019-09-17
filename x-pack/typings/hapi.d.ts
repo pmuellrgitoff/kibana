@@ -13,6 +13,7 @@ import { SecurityPlugin } from '../legacy/plugins/security';
 import { ActionsPlugin, ActionsClient } from '../legacy/plugins/actions';
 import { TaskManager } from '../legacy/plugins/task_manager';
 import { AlertingPlugin, AlertsClient } from '../legacy/plugins/alerting';
+import { EventLog } from '../legacy/plugins/event_log';
 
 declare module 'hapi' {
   interface Request {
@@ -27,5 +28,6 @@ declare module 'hapi' {
     actions?: ActionsPlugin;
     alerting?: AlertingPlugin;
     task_manager?: TaskManager;
+    event_log?: EventLog;
   }
 }

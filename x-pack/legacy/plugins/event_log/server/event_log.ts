@@ -5,9 +5,10 @@
  */
 
 import _ from 'lodash';
-import { ClusterClient } from 'src/core/server';
+import { CallCluster } from 'src/legacy/core_plugins/elasticsearch';
 
-import { Plugin } from './plugin';
+import { LegacySystemLogger } from './legacy_system_logger';
+
 import {
   IEvent,
   IEventLogger,
@@ -15,32 +16,27 @@ import {
   IEventLogSearchResults,
   IEventLogSearchOptions,
 } from './types';
-import { EventLogger } from './event_logger';
 
-type Logger = Plugin['systemLogger'];
+import { EventLogger } from './event_logger';
 
 interface EventLogConstructorParams {
   esBaseName: string;
-  logger: Logger;
-  clusterClient?: ClusterClient;
+  systemLogger: LegacySystemLogger;
+  clusterClient: CallCluster;
 }
 
 export class EventLog implements IEventLog {
   private validEventTypes = new Map<string, Set<string>>();
   private validTags = new Set<string>();
   private esBaseName: string;
-  private logger: Logger;
-  private clusterClient?: ClusterClient;
+  private systemLogger: LegacySystemLogger;
+  private clusterClient?: CallCluster;
 
-  constructor({ esBaseName, logger, clusterClient }: EventLogConstructorParams) {
+  constructor({ esBaseName, systemLogger, clusterClient }: EventLogConstructorParams) {
     this.esBaseName = esBaseName;
-    this.logger = logger;
+    this.systemLogger = systemLogger;
     this.clusterClient = clusterClient;
   }
-
-  async legacyWaitForES(): Promise<void> {}
-
-  legacySetSavedObjects({ savedObjects, elasticsearch }: any): void {}
 
   isEnabled() {
     return this.clusterClient != null;
@@ -85,20 +81,13 @@ export class EventLog implements IEventLog {
     return new EventLogger({
       eventLog: this,
       clusterClient: this.clusterClient!,
+      systemLogger: this.systemLogger,
       initialProperties,
     });
   }
 
-  getSystemLogger(): Logger {
-    return this.logger;
-  }
-
   getEsBaseName(): string {
     return this.esBaseName;
-  }
-
-  getClusterClient(): ClusterClient | undefined {
-    return this.clusterClient;
   }
 
   searchEvents(opts: IEventLogSearchOptions): IEventLogSearchResults {

@@ -5,7 +5,7 @@
  */
 
 import { Logger, ClusterClient } from 'src/core/server';
-import { getEsNames } from './es_names';
+import { EsNames, getEsNames } from './es_names';
 
 interface EsContext {
   logger: Logger;
@@ -17,12 +17,16 @@ const mapDate = { type: 'date' };
 const mapObject = { type: 'object', enabled: false };
 const mapKeyword = { type: 'keyword', ignore_above: 256 };
 
-function getIndexTemplateBody(indexPattern: string) {
+const TRY_ILM = true;
+
+function getIndexTemplateBody(esNames: EsNames) {
   return {
-    index_patterns: [indexPattern],
+    index_patterns: [esNames.indexPattern],
     settings: {
       number_of_shards: 1,
       number_of_replicas: 1,
+      'index.lifecycle.name': esNames.ilmPolicy,
+      'index.lifecycle.rollover_alias': esNames.alias,
     },
     mappings: {
       dynamic: 'strict',
@@ -40,8 +44,36 @@ function getIndexTemplateBody(indexPattern: string) {
   };
 }
 
+function getIlmPolicyBody() {
+  return {
+    policy: {
+      phases: {
+        hot: {
+          actions: {
+            rollover: {
+              max_docs: '1',
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 export async function initializeEventLogES(esContext: EsContext) {
   const log = (message: string) => esContext.logger.info(message);
+
+  // create the ilm policy, if required
+  if (TRY_ILM) {
+    log(`checking to see if an ilm policy already exists`);
+    const ilmPolicy = await getIlmPolicy(esContext);
+    if (ilmPolicy != null) {
+      log(`an ilm policy does exist`);
+    } else {
+      log(`an ilm policy does not exist, so creating one`);
+      await addIlmPolicy(esContext);
+    }
+  }
 
   // create the index template, if required
   log(`checking to see if an index template already exists`);
@@ -69,6 +101,35 @@ export async function initializeEventLogES(esContext: EsContext) {
   }
 }
 
+async function getIlmPolicy(esContext: EsContext) {
+  const esNames = getEsNames(esContext.indexNameRoot);
+  esContext.logger.info(`getting ilm policy: ${esNames.ilmPolicy}`);
+  try {
+    return await callEs(esContext, 'transport.request', {
+      method: 'GET',
+      path: `_ilm/policy/${esNames.ilmPolicy}`,
+    });
+  } catch (err) {
+    const esErr = err as EsError;
+    if (esErr.statusCode === 404) {
+      esContext.logger.debug(`ilm policy not found: ${esNames.ilmPolicy}`);
+      return null;
+    }
+
+    throw err;
+  }
+}
+
+async function addIlmPolicy(esContext: EsContext) {
+  const esNames = getEsNames(esContext.indexNameRoot);
+  esContext.logger.info(`putting ilm policy: ${esNames.ilmPolicy}`);
+  return await callEs(esContext, 'transport.request', {
+    method: 'PUT',
+    path: `_ilm/policy/${esNames.ilmPolicy}`,
+    body: getIlmPolicyBody(),
+  });
+}
+
 async function getTemplate(esContext: EsContext) {
   const esNames = getEsNames(esContext.indexNameRoot);
   try {
@@ -88,8 +149,7 @@ async function getTemplate(esContext: EsContext) {
 
 async function addTemplate(esContext: EsContext) {
   const esNames = getEsNames(esContext.indexNameRoot);
-  const indexPattern = esNames.indexPattern;
-  const templateBody = getIndexTemplateBody(indexPattern);
+  const templateBody = getIndexTemplateBody(esNames);
   return await callEs(esContext, 'indices.putTemplate', {
     create: true,
     name: esNames.indexTemplate,
@@ -137,16 +197,21 @@ interface EsError {
 }
 
 async function callEs(esContext: EsContext, operation: string, body?: any) {
+  let actualOperation = operation;
+  if (actualOperation === 'transport.request') {
+    actualOperation = `${body.method} ${body.path}`;
+  }
+
   try {
-    esContext.logger.debug(`callEs(${operation}) called`, body);
+    esContext.logger.info(`callEs(${actualOperation}) called`, body);
     const result = await esContext.clusterClient.callAsInternalUser(operation, body);
-    esContext.logger.debug(`callEs(${operation}) result`, body);
+    esContext.logger.info(`callEs(${actualOperation}) result`, body);
     return result;
   } catch (err) {
     const esErr = err as EsError;
 
-    esContext.logger.debug(
-      `callEs(${operation}) throws; status: ${esErr.statusCode}; ${err.message}`
+    esContext.logger.info(
+      `callEs(${actualOperation}) throws; status: ${esErr.statusCode}; ${err.message}`
     );
 
     throw esErr;

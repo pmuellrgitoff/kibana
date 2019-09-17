@@ -25,13 +25,14 @@ import {
 import { registerBuiltInActionTypes } from './builtin_action_types';
 import { SpacesPlugin } from '../../spaces';
 import { createOptionalPlugin } from '../../../server/lib/optional_plugin';
-import { IEventLog } from '../../../../plugins/event_log/server/types';
+import { IEventLog } from '../../event_log/server/types';
 
 // Extend PluginProperties to indicate which plugins are guaranteed to exist
 // due to being marked as dependencies
 interface Plugins extends Hapi.PluginProperties {
   task_manager: TaskManager;
   encrypted_saved_objects: EncryptedSavedObjectsPlugin;
+  event_log: IEventLog;
 }
 
 interface Server extends Legacy.Server {
@@ -117,7 +118,9 @@ export function init(server: Server) {
     getActionsConfigurationUtilities(config.get('xpack.actions') as ActionsKibanaConfig)
   );
 
-  const eventLog: IEventLog = (server as any).newPlatform.setup.plugins.event_log;
+  const eventLog: IEventLog = server.plugins.event_log;
+  console.log(__filename, 'eventLog.esBaseName:', eventLog.esBaseName);
+  console.log(__filename, 'eventLog.registerEventType:', eventLog.registerEventType);
   eventLog.registerEventType('action', ['created', 'deleted', 'updated', 'executed']);
 
   // Routes

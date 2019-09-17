@@ -4,8 +4,8 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import { schema as Schema } from '@kbn/config-schema';
+import { IEvent, IEventLogger } from './types';
 
-export const schema = Schema.object({
-  isEnabled: Schema.boolean({ defaultValue: true }),
-});
+export class EventLoggerMock implements IEventLogger {
+  public logEvent(eventProperties: Partial<IEvent>): void {}
+}

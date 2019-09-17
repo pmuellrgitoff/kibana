@@ -9,7 +9,7 @@ import { execute } from './execute';
 import { actionTypeRegistryMock } from '../action_type_registry.mock';
 import { SavedObjectsClientMock } from '../../../../../../src/core/server/mocks';
 import { encryptedSavedObjectsMock } from '../../../encrypted_saved_objects/server/plugin.mock';
-import { EventLoggerMock } from '../../../../../plugins/event_log/server/event_logger_mock';
+import { EventLoggerMock } from '../../../event_log/server/event_logger.mock';
 import { ExecuteOptions } from './execute';
 
 const savedObjectsClient = SavedObjectsClientMock.create();

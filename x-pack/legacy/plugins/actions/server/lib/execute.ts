@@ -12,7 +12,7 @@ import {
 } from '../types';
 import { validateParams, validateConfig, validateSecrets } from './validate_with_schema';
 import { EncryptedSavedObjectsPlugin } from '../../../encrypted_saved_objects';
-import { IEventLogger } from '../../../../../plugins/event_log/server/types';
+import { IEventLogger } from '../../../event_log/server/types';
 import { events, IEventData } from '../events';
 
 export interface ExecuteOptions {

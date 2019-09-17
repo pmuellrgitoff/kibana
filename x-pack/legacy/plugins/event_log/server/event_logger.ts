@@ -4,34 +4,34 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import { ClusterClient, Logger } from 'src/core/server';
 import _ from 'lodash';
+import { CallCluster } from 'src/legacy/core_plugins/elasticsearch';
 
 import { IEvent, IEventLogger } from './types';
 import { EventLog } from './event_log';
 import { validateEvent } from './event';
+import { LegacySystemLogger } from './legacy_system_logger';
 
-interface IEventLoggerCtorParams {
+export interface EventLoggerCtorParams {
   eventLog: EventLog;
-  clusterClient: ClusterClient;
+  clusterClient?: CallCluster;
   initialProperties: Partial<IEvent>;
+  systemLogger: LegacySystemLogger;
 }
 
 export class EventLogger implements IEventLogger {
   private eventLog: EventLog;
-  private systemLogger: Logger;
-  private clusterClient: ClusterClient;
+  private systemLogger: LegacySystemLogger;
   private initialProperties: Partial<IEvent>;
 
-  constructor(ctorParams: IEventLoggerCtorParams) {
+  constructor(ctorParams: EventLoggerCtorParams) {
     this.eventLog = ctorParams.eventLog;
-    this.clusterClient = ctorParams.clusterClient;
-    this.systemLogger = this.eventLog.getSystemLogger();
+    this.systemLogger = ctorParams.systemLogger;
     this.initialProperties = ctorParams.initialProperties;
   }
 
-  // non-blocking, but spawns an async task to do the work
-  logEvent(eventProperties: Partial<IEvent>): void {
+  // non-blocking, but spawns an async function to do the work
+  public logEvent(eventProperties: Partial<IEvent>): void {
     const event: Partial<IEvent> = {
       ...this.initialProperties,
       ...eventProperties,
@@ -48,22 +48,7 @@ export class EventLogger implements IEventLogger {
     this.asyncLogEvent(event as IEvent);
   }
 
-  private async asyncLogEvent(event: IEvent): Promise<void> {
-    const indexName = this.eventLog.getEsBaseName();
-
-    const doc = {
-      index: indexName,
-      body: event,
-    };
-
-    this.systemLogger.debug(`writing to event log: ${JSON.stringify(doc)}`);
-    try {
-      await this.clusterClient.callAsInternalUser('index', doc);
-    } catch (err) {
-      this.systemLogger.warn(
-        `error writing to event log: ${err.message}; ${JSON.stringify(event)}`
-      );
-      // TODO - on failure, event log params should be written to a file for later ingest
-    }
+  async asyncLogEvent(event: IEvent): Promise<void> {
+    this.systemLogger.info(`saved_objects logger not yet implemented`);
   }
 }

@@ -181,6 +181,12 @@ PUT .event-log-000001
 After this set up, writing to `.event-log` will write to the most recent
 index created, and searching in `.event-log` will search across `.event-log-*`.
 
+## Initialization flow
+
+- after Kibana starts, check for expected ES structures, create as neccessary
+- create saved object index (if we go down that route)
+- queue event log requests until all that is done
+
 
 # Drawbacks
 

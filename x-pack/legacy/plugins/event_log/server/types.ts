@@ -4,14 +4,8 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
-import { TypeOf } from '@kbn/config-schema';
-import { schema } from './schema';
-
-// the object exposed by plugin.setup()
+// the object exposed by the plugin
 export interface IEventLog {
-  legacyWaitForES(): Promise<void>;
-  legacySetSavedObjects({ savedObjects, elasticsearch }: any): void;
-
   registerEventType(eventType: string, subTypes: string[]): void;
   getEventTypes(): Map<string, Set<string>>;
 
@@ -57,6 +51,3 @@ export interface IEventLogSearchResults {
   total: number;
   events: IEvent[];
 }
-
-/** @public */
-export type EventLogConfigType = TypeOf<typeof schema>;

@@ -15,7 +15,7 @@ import {
   GetServicesFunction,
   SpaceIdToNamespaceFunction,
 } from '../types';
-import { EventLoggerMock } from '../../../../../plugins/event_log/server/event_logger_mock';
+import { IEventLogger } from '../../../event_log/server/types';
 
 interface CreateTaskRunnerFunctionOptions {
   getServices: GetServicesFunction;
@@ -24,6 +24,7 @@ interface CreateTaskRunnerFunctionOptions {
   spaceIdToNamespace: SpaceIdToNamespaceFunction;
   getBasePath: GetBasePathFunction;
   isSecurityEnabled: boolean;
+  eventLogger: IEventLogger;
 }
 
 interface TaskRunnerOptions {
@@ -37,6 +38,7 @@ export function getCreateTaskRunnerFunction({
   spaceIdToNamespace,
   getBasePath,
   isSecurityEnabled,
+  eventLogger,
 }: CreateTaskRunnerFunctionOptions) {
   return ({ taskInstance }: TaskRunnerOptions) => {
     return {
@@ -73,7 +75,7 @@ export function getCreateTaskRunnerFunction({
           actionId,
           services: getServices(fakeRequest),
           params,
-          eventLogger: new EventLoggerMock(),
+          eventLogger,
         });
         if (executorResult.status === 'error') {
           // Task manager error handler only kicks in when an error thrown (at this time)
