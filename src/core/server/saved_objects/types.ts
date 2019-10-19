@@ -83,7 +83,15 @@ export interface SavedObject<T extends SavedObjectAttributes = any> {
   type: string;
   /** An opaque version number which changes on each successful write operation. Can be used for implementing optimistic concurrency control. */
   version?: string;
-  /** Timestamp of the last time this document had been updated.  */
+  /** Tags associated with this document. */
+  tags?: string[];
+  /** Kibana user that originally created the document. */
+  created_by?: string;
+  /** Timestamp of the creation of the document. */
+  created_at?: string;
+  /** Kibana user that last updated the document. */
+  updated_by?: string;
+  /** Timestamp of the last update to the document. */
   updated_at?: string;
   error?: {
     message: string;

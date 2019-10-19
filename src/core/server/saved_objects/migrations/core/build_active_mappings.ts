@@ -150,6 +150,18 @@ function defaultMapping(): IndexMapping {
       namespace: {
         type: 'keyword',
       },
+      tags: {
+        type: 'keyword',
+      },
+      created_by: {
+        type: 'keyword',
+      },
+      created_at: {
+        type: 'date',
+      },
+      updated_by: {
+        type: 'keyword',
+      },
       updated_at: {
         type: 'date',
       },

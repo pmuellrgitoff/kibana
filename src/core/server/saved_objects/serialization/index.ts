@@ -53,6 +53,10 @@ interface SavedObjectDoc {
   namespace?: string;
   migrationVersion?: SavedObjectsMigrationVersion;
   version?: string;
+  tags?: string[];
+  created_by?: string;
+  created_at?: string;
+  updated_by?: string;
   updated_at?: string;
 
   [rootProp: string]: any;
@@ -114,6 +118,11 @@ export class SavedObjectsSerializer {
         ? encodeVersion(_seq_no!, _primary_term!)
         : undefined;
 
+    let tags = _source.tags || [];
+    if (!Array.isArray(tags)) {
+      tags = [`${tags}`];
+    }
+
     return {
       type,
       id: this.trimIdPrefix(namespace, type, _id),
@@ -121,6 +130,10 @@ export class SavedObjectsSerializer {
       attributes: _source[type],
       references: _source.references || [],
       ...(_source.migrationVersion && { migrationVersion: _source.migrationVersion }),
+      tags,
+      ...(_source.created_by && { created_by: _source.created_by }),
+      ...(_source.created_at && { created_at: _source.created_at }),
+      ...(_source.updated_by && { updated_by: _source.updated_by }),
       ...(_source.updated_at && { updated_at: _source.updated_at }),
       ...(version && { version }),
     };
@@ -138,6 +151,10 @@ export class SavedObjectsSerializer {
       namespace,
       attributes,
       migrationVersion,
+      tags,
+      created_by,
+      created_at,
+      updated_by,
       updated_at,
       version,
       references,
@@ -148,6 +165,10 @@ export class SavedObjectsSerializer {
       references,
       ...(namespace && !this.schema.isNamespaceAgnostic(type) && { namespace }),
       ...(migrationVersion && { migrationVersion }),
+      tags,
+      ...(created_by && { created_by }),
+      ...(created_at && { created_at }),
+      ...(updated_by && { updated_by }),
       ...(updated_at && { updated_at }),
     };
 

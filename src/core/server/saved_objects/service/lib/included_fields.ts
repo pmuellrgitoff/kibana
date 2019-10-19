@@ -40,6 +40,10 @@ export function includedFields(type: string | string[] = '*', fields?: string[] 
     .concat('type')
     .concat('references')
     .concat('migrationVersion')
+    .concat('tags')
+    .concat('created_by')
+    .concat('created_at')
+    .concat('updated_by')
     .concat('updated_at')
     .concat(fields); // v5 compatibility
 }
