@@ -64,10 +64,10 @@ class EsContextImpl implements EsContext {
     setImmediate(async () => {
       try {
         await this._initialize();
-        this.logger.info('readySignal.signal(true)');
+        this.logger.debug('readySignal.signal(true)');
         this.readySignal.signal(true);
       } catch (err) {
-        this.logger.info('readySignal.signal(false)');
+        this.logger.debug('readySignal.signal(false)');
         this.readySignal.signal(false);
       }
     });
@@ -100,6 +100,6 @@ class EsContextImpl implements EsContext {
 
   debug(message: string, object?: any) {
     const objectString = object == null ? '' : JSON.stringify(object);
-    this.logger.info(`esContext: ${message} ${objectString}`);
+    this.logger.debug(`esContext: ${message} ${objectString}`);
   }
 }

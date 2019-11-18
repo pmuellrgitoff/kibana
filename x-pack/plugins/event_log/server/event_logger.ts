@@ -19,12 +19,6 @@ interface IEventLoggerCtorParams {
   systemLogger: SystemLogger;
 }
 
-export function createNoopEventLogger(): IEventLogger {
-  return {
-    logEvent(eventProperties: Partial<IEvent>): void {},
-  };
-}
-
 export class EventLogger implements IEventLogger {
   private esContext: EsContext;
   private eventLogService: IEventLogService;
@@ -38,6 +32,22 @@ export class EventLogger implements IEventLogger {
     this.systemLogger = ctorParams.systemLogger;
   }
 
+  startTiming(event: Partial<IEvent>): void {
+    if (event.event == null) event.event = {};
+    event.event.start = new Date().toISOString();
+  }
+
+  stopTiming(event: Partial<IEvent>): void {
+    if (event.event == null) return;
+
+    const start = getEventStart(event);
+    if (start == null || isNaN(start)) return;
+
+    const end = Date.now();
+    event.event.end = new Date(end).toISOString();
+    event.event.duration = (end - start) * 1000 * 1000; // nanoseconds
+  }
+
   // non-blocking, but spawns an async task to do the work
   logEvent(eventProperties: Partial<IEvent>): void {
     const event: Partial<IEvent> = {};
@@ -49,6 +59,10 @@ export class EventLogger implements IEventLogger {
     event['@timestamp'] = new Date().toISOString();
     if (event.ecs == null) event.ecs = {};
     event.ecs.version = ECS_VERSION;
+
+    // TODO add kibana server uuid
+    // if (event.kibana == null) event.kibana = {};
+    // event.kibana.server_uuid = NP version of config.get('server.uuid');
 
     let validatedEvent: Partial<IEvent>;
     try {
@@ -65,6 +79,14 @@ export class EventLogger implements IEventLogger {
 
     writeLogEvent(this.esContext, doc);
   }
+}
+
+// return the epoch millis of the start date, or null; may be NaN if garbage
+function getEventStart(event: Partial<IEvent>): number | null {
+  if (event.event == null) return null;
+  if (Array.isArray(event.event.start)) return Date.parse(event.event.start[0]);
+  if (typeof event.event.start === 'string') return Date.parse(event.event.start);
+  return null;
 }
 
 const RequiredEventSchema = schema.object({
@@ -117,10 +139,10 @@ function writeLogEvent(esContext: EsContext, doc: any): void {
 
 // whew, the thing that actually writes the event log document!
 async function writeLogEventDoc(esContext: EsContext, doc: any) {
-  esContext.logger.info(`writing to event log: ${JSON.stringify(doc)}`);
+  esContext.logger.debug(`writing to event log: ${JSON.stringify(doc)}`);
   await esContext.waitTillReady();
   await esContext.callEs('index', doc);
-  esContext.logger.info(`writing to event log complete`);
+  esContext.logger.debug(`writing to event log complete`);
 }
 
 // TODO: write log entry to a file

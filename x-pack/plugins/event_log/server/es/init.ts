@@ -8,7 +8,7 @@ import { getIlmPolicy, getIndexTemplate } from './documents';
 import { EsContext } from './context';
 
 export async function initializeEs(esContext: EsContext): Promise<boolean> {
-  esContext.logger.info('initializing elasticsearch resources starting');
+  esContext.logger.debug('initializing elasticsearch resources starting');
 
   try {
     await initializeEsResources(esContext);
@@ -17,7 +17,7 @@ export async function initializeEs(esContext: EsContext): Promise<boolean> {
     return false;
   }
 
-  esContext.logger.info('initializing elasticsearch resources complete');
+  esContext.logger.debug('initializing elasticsearch resources complete');
   return true;
 }
 

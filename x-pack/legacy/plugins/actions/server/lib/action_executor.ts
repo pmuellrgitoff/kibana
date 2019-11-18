@@ -104,19 +104,14 @@ export class ActionExecutor {
     const loggedEvent: IEvent = {
       event: {
         action: EVENT_LOG_ACTIONS.execute,
-        original: JSON.stringify(validatedParams),
       },
       kibana: {
         space_id: namespace,
-      },
-      service: {
-        id: actionId,
-        name: description,
-        type: actionTypeId,
+        saved_objects: [`action:${actionId}`],
       },
     };
 
-    const timeStart = Date.now();
+    eventLogger.startTiming(loggedEvent);
     let error: any;
 
     try {
@@ -127,16 +122,14 @@ export class ActionExecutor {
         config: validatedConfig,
         secrets: validatedSecrets,
       });
+      loggedEvent.message = `action executed successfully: ${actionLabel}`;
     } catch (err) {
       error = err;
-      logger.warn(`action executed unsuccessfully: ${actionLabel} - ${err.message}`);
-      loggedEvent.error = { message: err.message };
+      loggedEvent.message = `action executed unsuccessfully: ${actionLabel} - ${err.message}`;
+      logger.warn(loggedEvent.message);
     }
 
-    const duration = (Date.now() - timeStart) * 1000 * 1000; // nanoseconds
-    loggedEvent.event!.start = new Date(timeStart).toISOString();
-    loggedEvent.event!.duration = duration;
-
+    eventLogger.stopTiming(loggedEvent);
     eventLogger.logEvent(loggedEvent);
 
     if (error != null) {

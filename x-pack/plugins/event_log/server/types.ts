@@ -26,6 +26,8 @@ export interface IEventLogService {
 
 export interface IEventLogger {
   logEvent(properties: Partial<IEvent>): void;
+  startTiming(event: Partial<IEvent>): void;
+  stopTiming(event: Partial<IEvent>): void;
 }
 
 /*

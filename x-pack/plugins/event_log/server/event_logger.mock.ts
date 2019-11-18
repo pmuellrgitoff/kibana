@@ -9,5 +9,7 @@ import { IEvent, IEventLogger } from './types';
 export function createEventLoggerMock(): IEventLogger {
   return {
     logEvent(eventProperties: Partial<IEvent>): void {},
+    startTiming(event: Partial<IEvent>): void {},
+    stopTiming(event: Partial<IEvent>): void {},
   };
 }

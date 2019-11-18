@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const lodash = require('lodash');
 
 const LineWriter = require('./lib/line_writer');
 
@@ -25,7 +26,11 @@ function main() {
   // add our custom fields
   ecsSchema.mappings.properties.kibana = {
     properties: {
-      username: {
+      saved_objects: {
+        ignore_above: 1024,
+        type: 'keyword',
+      },
+      server_uuid: {
         ignore_above: 1024,
         type: 'keyword',
       },
@@ -33,18 +38,47 @@ function main() {
         ignore_above: 1024,
         type: 'keyword',
       },
-      uuid: {
-        ignore_above: 1024,
-        type: 'keyword',
-      }
     }
   };
 
-  const elSchema = getEventLogSchema(ecsSchema);
+  const exportedProperties = [
+    '@timestamp',
+    'tags',
+    'message',
+    'ecs.properties.version',
+    'event.properties.action',
+    'event.properties.provider',
+    'event.properties.start',
+    'event.properties.duration',
+    'event.properties.end',
+    'user.properties.name',
+    'kibana.properties.saved_objects',
+    'kibana.properties.server_uuid',
+    'kibana.properties.space_id',
+  ];
+
+  const elSchema = getEventLogSchema(ecsSchema, exportedProperties);
 
   console.log(`generating files in ${PLUGIN_DIR}`);
   writeEventLogMappings(elSchema);
   writeEventLogConfigSchema(elSchema, ecsVersion);
+}
+
+// return a stripped down version of the ecs schema, with only exportedProperties
+function getEventLogSchema(ecsSchema, exportedProperties) {
+  const result = {
+    mappings: {
+      properties: {
+      }
+    }
+  };
+
+  for (const prop of exportedProperties) {
+    const value = lodash.get(ecsSchema.mappings.properties, prop);
+    lodash.set(result.mappings.properties, prop, value);
+  }
+
+  return result;
 }
 
 function writeEventLogMappings(elSchema) {
@@ -194,10 +228,6 @@ function legalPropertyName(prop) {
   return prop;
 }
 
-function getEventLogSchema(ecsSchema) {
-  return ecsSchema;
-}
-
 function readEcsJSONFile(ecsDir, fileName) {
   const contents = readEcsFile(ecsDir, fileName);
 
@@ -289,30 +319,12 @@ export interface IEventGenerated %%INTERFACE%%
 // a config-schema  describing the schema
 export const EventSchemaGenerated = %%SCHEMA%%;
 
-interface GeoPoint {
-  lat?: number;
-  lon?: number;
-}
-
-function ecsGeoPoint() {
-  return schema.maybe(
-    schema.object({
-      lat: ecsNumber(),
-      lon: ecsNumber(),
-    })
-  );
-}
-
 function ecsString() {
   return schema.maybe(schema.oneOf([schema.string(), schema.arrayOf(schema.string())]));
 }
 
 function ecsNumber() {
   return schema.maybe(schema.oneOf([schema.number(), schema.arrayOf(schema.number())]));
-}
-
-function ecsOpenObject() {
-  return schema.maybe(schema.any());
 }
 
 function ecsDate() {
