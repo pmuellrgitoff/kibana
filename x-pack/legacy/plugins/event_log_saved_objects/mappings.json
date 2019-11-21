@@ -1,0 +1,15 @@
+{
+  "logEntry": {
+    "properties": {
+      "provider": {
+        "type": "keyword"
+      },
+      "action": {
+        "type": "keyword"
+      },
+      "message": {
+        "type": "text"
+      }
+    }
+  }
+}
