@@ -11,7 +11,6 @@ jest.mock('./lib/send_email', () => ({
 import { Logger } from '../../../../../src/core/server';
 
 import { ActionType, ActionTypeExecutorOptions } from '../types';
-import { actionsConfigMock } from '../actions_config.mock';
 import { validateConfig, validateSecrets, validateParams } from '../lib';
 import { createActionTypeRegistry } from './index.test';
 import { sendEmail } from './lib/send_email';
@@ -31,6 +30,7 @@ const services = actionsMock.createServices();
 
 let actionType: ActionType;
 let mockedLogger: jest.Mocked<Logger>;
+const mockedConfigUtils = actionsMock.createConfigUtils();
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -51,7 +51,7 @@ describe('config validation', () => {
       service: 'gmail',
       from: 'bob@example.com',
     };
-    expect(validateConfig(actionType, config)).toEqual({
+    expect(validateConfig(actionType, config, mockedConfigUtils)).toEqual({
       ...config,
       host: null,
       port: null,
@@ -61,7 +61,7 @@ describe('config validation', () => {
     delete config.service;
     config.host = 'elastic.co';
     config.port = 8080;
-    expect(validateConfig(actionType, config)).toEqual({
+    expect(validateConfig(actionType, config, mockedConfigUtils)).toEqual({
       ...config,
       service: null,
       secure: null,
@@ -75,38 +75,42 @@ describe('config validation', () => {
 
     // empty object
     expect(() => {
-      validateConfig(actionType, {});
+      validateConfig(actionType, {}, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [from]: expected value of type [string] but got [undefined]"`
     );
 
     // no service or host/port
     expect(() => {
-      validateConfig(actionType, baseConfig);
+      validateConfig(actionType, baseConfig, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: either [service] or [host]/[port] is required"`
     );
 
     // host but no port
     expect(() => {
-      validateConfig(actionType, { ...baseConfig, host: 'elastic.co' });
+      validateConfig(actionType, { ...baseConfig, host: 'elastic.co' }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [port] is required if [service] is not provided"`
     );
 
     // port but no host
     expect(() => {
-      validateConfig(actionType, { ...baseConfig, port: 8080 });
+      validateConfig(actionType, { ...baseConfig, port: 8080 }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [host] is required if [service] is not provided"`
     );
 
     // invalid service
     expect(() => {
-      validateConfig(actionType, {
-        ...baseConfig,
-        service: 'bad-nodemailer-service',
-      });
+      validateConfig(
+        actionType,
+        {
+          ...baseConfig,
+          service: 'bad-nodemailer-service',
+        },
+        mockedConfigUtils
+      );
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [service] value 'bad-nodemailer-service' is not valid"`
     );
@@ -120,7 +124,7 @@ describe('config validation', () => {
     actionType = getActionType({
       logger: mockedLogger,
       configurationUtilities: {
-        ...actionsConfigMock.create(),
+        ...actionsMock.createConfigUtils(),
         isWhitelistedHostname: hostname => hostname === NODEMAILER_AOL_SERVICE_HOST,
       },
     });
@@ -147,23 +151,23 @@ describe('config validation', () => {
       port: 42,
     };
 
-    const validatedConfig1 = validateConfig(actionType, whitelistedConfig1);
+    const validatedConfig1 = validateConfig(actionType, whitelistedConfig1, mockedConfigUtils);
     expect(validatedConfig1.service).toEqual(whitelistedConfig1.service);
     expect(validatedConfig1.from).toEqual(whitelistedConfig1.from);
 
-    const validatedConfig2 = validateConfig(actionType, whitelistedConfig2);
+    const validatedConfig2 = validateConfig(actionType, whitelistedConfig2, mockedConfigUtils);
     expect(validatedConfig2.host).toEqual(whitelistedConfig2.host);
     expect(validatedConfig2.port).toEqual(whitelistedConfig2.port);
     expect(validatedConfig2.from).toEqual(whitelistedConfig2.from);
 
     expect(() => {
-      validateConfig(actionType, notWhitelistedConfig1);
+      validateConfig(actionType, notWhitelistedConfig1, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [service] value 'gmail' resolves to host 'smtp.gmail.com' which is not in the whitelistedHosts configuration"`
     );
 
     expect(() => {
-      validateConfig(actionType, notWhitelistedConfig2);
+      validateConfig(actionType, notWhitelistedConfig2, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [host] value 'smtp.gmail.com' is not in the whitelistedHosts configuration"`
     );
@@ -176,7 +180,7 @@ describe('secrets validation', () => {
       user: 'bob',
       password: 'supersecret',
     };
-    expect(validateSecrets(actionType, secrets)).toEqual(secrets);
+    expect(validateSecrets(actionType, secrets, mockedConfigUtils)).toEqual(secrets);
   });
 
   test('secrets validation succeeds when secrets props are null/undefined', () => {
@@ -184,9 +188,9 @@ describe('secrets validation', () => {
       user: null,
       password: null,
     };
-    expect(validateSecrets(actionType, {})).toEqual(secrets);
-    expect(validateSecrets(actionType, { user: null })).toEqual(secrets);
-    expect(validateSecrets(actionType, { password: null })).toEqual(secrets);
+    expect(validateSecrets(actionType, {}, mockedConfigUtils)).toEqual(secrets);
+    expect(validateSecrets(actionType, { user: null }, mockedConfigUtils)).toEqual(secrets);
+    expect(validateSecrets(actionType, { password: null }, mockedConfigUtils)).toEqual(secrets);
   });
 });
 
@@ -197,7 +201,7 @@ describe('params validation', () => {
       subject: 'this is a test',
       message: 'this is the message',
     };
-    expect(validateParams(actionType, params)).toMatchInlineSnapshot(`
+    expect(validateParams(actionType, params, mockedConfigUtils)).toMatchInlineSnapshot(`
       Object {
         "bcc": Array [],
         "cc": Array [],
@@ -213,7 +217,7 @@ describe('params validation', () => {
   test('params validation fails when params is not valid', () => {
     // empty object
     expect(() => {
-      validateParams(actionType, {});
+      validateParams(actionType, {}, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [subject]: expected value of type [string] but got [undefined]"`
     );

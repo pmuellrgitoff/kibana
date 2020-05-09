@@ -14,6 +14,7 @@ const ACTION_TYPE_ID = '.server-log';
 
 let actionType: ActionType;
 let mockedLogger: jest.Mocked<Logger>;
+const mockedConfigUtils = actionsMock.createConfigUtils();
 
 beforeAll(() => {
   const { logger, actionTypeRegistry } = createActionTypeRegistry();
@@ -31,15 +32,14 @@ describe('get()', () => {
 
 describe('validateParams()', () => {
   test('should validate and pass when params is valid', () => {
-    expect(validateParams(actionType, { message: 'a message', level: 'info' })).toEqual({
+    expect(
+      validateParams(actionType, { message: 'a message', level: 'info' }, mockedConfigUtils)
+    ).toEqual({
       message: 'a message',
       level: 'info',
     });
     expect(
-      validateParams(actionType, {
-        message: 'a message',
-        level: 'info',
-      })
+      validateParams(actionType, { message: 'a message', level: 'info' }, mockedConfigUtils)
     ).toEqual({
       message: 'a message',
       level: 'info',
@@ -48,19 +48,19 @@ describe('validateParams()', () => {
 
   test('should validate and throw error when params is invalid', () => {
     expect(() => {
-      validateParams(actionType, {});
+      validateParams(actionType, {}, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [message]: expected value of type [string] but got [undefined]"`
     );
 
     expect(() => {
-      validateParams(actionType, { message: 1 });
+      validateParams(actionType, { message: 1 }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [message]: expected value of type [string] but got [number]"`
     );
 
     expect(() => {
-      validateParams(actionType, { message: 'x', level: 2 });
+      validateParams(actionType, { message: 'x', level: 2 }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(`
 "error validating action params: [level]: types that failed validation:
 - [level.0]: expected value to equal [trace]
@@ -72,7 +72,7 @@ describe('validateParams()', () => {
 `);
 
     expect(() => {
-      validateParams(actionType, { message: 'x', level: 'foo' });
+      validateParams(actionType, { message: 'x', level: 'foo' }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(`
 "error validating action params: [level]: types that failed validation:
 - [level.0]: expected value to equal [trace]

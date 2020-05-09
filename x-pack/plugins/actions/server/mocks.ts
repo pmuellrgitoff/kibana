@@ -7,6 +7,7 @@
 import { actionsClientMock } from './actions_client.mock';
 import { PluginSetupContract, PluginStartContract } from './plugin';
 import { Services } from './types';
+import { actionsConfigMock } from './actions_config.mock';
 import {
   elasticsearchServiceMock,
   savedObjectsClientMock,
@@ -47,4 +48,5 @@ export const actionsMock = {
   createServices: createServicesMock,
   createSetup: createSetupMock,
   createStart: createStartMock,
+  createConfigUtils: actionsConfigMock.create,
 };

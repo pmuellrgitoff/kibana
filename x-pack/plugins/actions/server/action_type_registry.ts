@@ -36,6 +36,10 @@ export class ActionTypeRegistry {
     this.preconfiguredActions = constructorParams.preconfiguredActions;
   }
 
+  public getConfigUtils() {
+    return this.actionsConfigUtils;
+  }
+
   /**
    * Returns if the action type registry has the given action type registered
    */

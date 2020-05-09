@@ -7,6 +7,7 @@
 import { ActionTypeRegistry } from './action_type_registry';
 import { PluginSetupContract, PluginStartContract } from './plugin';
 import { ActionsClient } from './actions_client';
+import { ActionsConfigurationUtilities } from './actions_config';
 import { LicenseType } from '../../licensing/common/types';
 import {
   IClusterClient,
@@ -99,7 +100,7 @@ export type ExecutorType = (
 ) => Promise<ActionTypeExecutorResult | null | undefined | void>;
 
 interface ValidatorType {
-  validate(value: unknown): Record<string, unknown>;
+  validate(value: unknown, configUtils?: ActionsConfigurationUtilities): Record<string, unknown>;
 }
 
 export type ActionTypeCreator = (config?: ActionsConfigType) => ActionType;

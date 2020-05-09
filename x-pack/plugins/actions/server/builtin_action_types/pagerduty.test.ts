@@ -25,6 +25,7 @@ const services: Services = actionsMock.createServices();
 
 let actionType: ActionType;
 let mockedLogger: jest.Mocked<Logger>;
+const mockedConfigUtils = actionsMock.createConfigUtils();
 
 beforeAll(() => {
   const { logger, actionTypeRegistry } = createActionTypeRegistry();
@@ -41,13 +42,15 @@ describe('get()', () => {
 
 describe('validateConfig()', () => {
   test('should validate and pass when config is valid', () => {
-    expect(validateConfig(actionType, {})).toEqual({ apiUrl: null });
-    expect(validateConfig(actionType, { apiUrl: 'bar' })).toEqual({ apiUrl: 'bar' });
+    expect(validateConfig(actionType, {}, mockedConfigUtils)).toEqual({ apiUrl: null });
+    expect(validateConfig(actionType, { apiUrl: 'bar' }, mockedConfigUtils)).toEqual({
+      apiUrl: 'bar',
+    });
   });
 
   test('should validate and throw error when config is invalid', () => {
     expect(() => {
-      validateConfig(actionType, { shouldNotBeHere: true });
+      validateConfig(actionType, { shouldNotBeHere: true }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [shouldNotBeHere]: definition for this key is missing"`
     );
@@ -65,7 +68,13 @@ describe('validateConfig()', () => {
     });
 
     expect(
-      validateConfig(actionType, { apiUrl: 'https://events.pagerduty.com/v2/enqueue' })
+      validateConfig(
+        actionType,
+        {
+          apiUrl: 'https://events.pagerduty.com/v2/enqueue',
+        },
+        mockedConfigUtils
+      )
     ).toEqual({ apiUrl: 'https://events.pagerduty.com/v2/enqueue' });
   });
 
@@ -81,7 +90,13 @@ describe('validateConfig()', () => {
     });
 
     expect(() => {
-      validateConfig(actionType, { apiUrl: 'https://events.pagerduty.com/v2/enqueue' });
+      validateConfig(
+        actionType,
+        {
+          apiUrl: 'https://events.pagerduty.com/v2/enqueue',
+        },
+        mockedConfigUtils
+      );
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: error configuring pagerduty action: target url is not whitelisted"`
     );
@@ -91,20 +106,20 @@ describe('validateConfig()', () => {
 describe('validateSecrets()', () => {
   test('should validate and pass when secrets is valid', () => {
     const routingKey = 'super-secret';
-    expect(validateSecrets(actionType, { routingKey })).toEqual({
+    expect(validateSecrets(actionType, { routingKey }, mockedConfigUtils)).toEqual({
       routingKey,
     });
   });
 
   test('should validate and throw error when secrets is invalid', () => {
     expect(() => {
-      validateSecrets(actionType, { routingKey: false });
+      validateSecrets(actionType, { routingKey: false }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type secrets: [routingKey]: expected value of type [string] but got [boolean]"`
     );
 
     expect(() => {
-      validateSecrets(actionType, {});
+      validateSecrets(actionType, {}, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type secrets: [routingKey]: expected value of type [string] but got [undefined]"`
     );
@@ -113,7 +128,7 @@ describe('validateSecrets()', () => {
 
 describe('validateParams()', () => {
   test('should validate and pass when params is valid', () => {
-    expect(validateParams(actionType, {})).toEqual({});
+    expect(validateParams(actionType, {}, mockedConfigUtils)).toEqual({});
 
     const params = {
       eventAction: 'trigger',
@@ -126,12 +141,12 @@ describe('validateParams()', () => {
       group: 'a group',
       class: 'a class',
     };
-    expect(validateParams(actionType, params)).toEqual(params);
+    expect(validateParams(actionType, params, mockedConfigUtils)).toEqual(params);
   });
 
   test('should validate and throw error when params is invalid', () => {
     expect(() => {
-      validateParams(actionType, { eventAction: 'ackynollage' });
+      validateParams(actionType, { eventAction: 'ackynollage' }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(`
 "error validating action params: [eventAction]: types that failed validation:
 - [eventAction.0]: expected value to equal [trigger]
@@ -144,18 +159,14 @@ describe('validateParams()', () => {
     const randoDate = new Date('1963-09-23T01:23:45Z').toISOString();
     const timestamp = `  ${randoDate}`;
     expect(() => {
-      validateParams(actionType, {
-        timestamp,
-      });
+      validateParams(actionType, { timestamp }, mockedConfigUtils);
     }).toThrowError(`error validating action params: error parsing timestamp "${timestamp}"`);
   });
 
   test('should validate and throw error when timestamp is invalid', () => {
     const timestamp = `1963-09-55 90:23:45`;
     expect(() => {
-      validateParams(actionType, {
-        timestamp,
-      });
+      validateParams(actionType, { timestamp }, mockedConfigUtils);
     }).toThrowError(`error validating action params: error parsing timestamp "${timestamp}"`);
   });
 });

@@ -15,6 +15,7 @@ const createActionTypeRegistryMock = () => {
     ensureActionTypeEnabled: jest.fn(),
     isActionTypeEnabled: jest.fn(),
     isActionExecutable: jest.fn(),
+    getConfigUtils: jest.fn(),
   };
   return mocked;
 };

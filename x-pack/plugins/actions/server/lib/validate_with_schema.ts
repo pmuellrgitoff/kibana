@@ -6,17 +6,30 @@
 
 import Boom from 'boom';
 import { ActionType } from '../types';
+import { ActionsConfigurationUtilities } from '../actions_config';
 
-export function validateParams(actionType: ActionType, value: unknown) {
-  return validateWithSchema(actionType, 'params', value);
+export function validateParams(
+  actionType: ActionType,
+  value: unknown,
+  configUtils: ActionsConfigurationUtilities
+) {
+  return validateWithSchema(actionType, 'params', value, configUtils);
 }
 
-export function validateConfig(actionType: ActionType, value: unknown) {
-  return validateWithSchema(actionType, 'config', value);
+export function validateConfig(
+  actionType: ActionType,
+  value: unknown,
+  configUtils: ActionsConfigurationUtilities
+) {
+  return validateWithSchema(actionType, 'config', value, configUtils);
 }
 
-export function validateSecrets(actionType: ActionType, value: unknown) {
-  return validateWithSchema(actionType, 'secrets', value);
+export function validateSecrets(
+  actionType: ActionType,
+  value: unknown,
+  configUtils: ActionsConfigurationUtilities
+) {
+  return validateWithSchema(actionType, 'secrets', value, configUtils);
 }
 
 type ValidKeys = 'params' | 'config' | 'secrets';
@@ -24,7 +37,8 @@ type ValidKeys = 'params' | 'config' | 'secrets';
 function validateWithSchema(
   actionType: ActionType,
   key: ValidKeys,
-  value: unknown
+  value: unknown,
+  configUtils?: ActionsConfigurationUtilities
 ): Record<string, unknown> {
   if (actionType.validate) {
     let name;
@@ -33,20 +47,20 @@ function validateWithSchema(
         case 'params':
           name = 'action params';
           if (actionType.validate.params) {
-            return actionType.validate.params.validate(value);
+            return actionType.validate.params.validate(value, configUtils);
           }
           break;
         case 'config':
           name = 'action type config';
           if (actionType.validate.config) {
-            return actionType.validate.config.validate(value);
+            return actionType.validate.config.validate(value, configUtils);
           }
 
           break;
         case 'secrets':
           name = 'action type secrets';
           if (actionType.validate.secrets) {
-            return actionType.validate.secrets.validate(value);
+            return actionType.validate.secrets.validate(value, configUtils);
           }
           break;
         default:

@@ -76,8 +76,9 @@ export class ActionsClient {
   public async create({ action }: CreateOptions): Promise<ActionResult> {
     const { actionTypeId, name, config, secrets } = action;
     const actionType = this.actionTypeRegistry.get(actionTypeId);
-    const validatedActionTypeConfig = validateConfig(actionType, config);
-    const validatedActionTypeSecrets = validateSecrets(actionType, secrets);
+    const configUtils = this.actionTypeRegistry.getConfigUtils();
+    const validatedActionTypeConfig = validateConfig(actionType, config, configUtils);
+    const validatedActionTypeSecrets = validateSecrets(actionType, secrets, configUtils);
 
     this.actionTypeRegistry.ensureActionTypeEnabled(actionTypeId);
 
@@ -119,8 +120,9 @@ export class ActionsClient {
     const { actionTypeId } = existingObject.attributes;
     const { name, config, secrets } = action;
     const actionType = this.actionTypeRegistry.get(actionTypeId);
-    const validatedActionTypeConfig = validateConfig(actionType, config);
-    const validatedActionTypeSecrets = validateSecrets(actionType, secrets);
+    const configUtils = this.actionTypeRegistry.getConfigUtils();
+    const validatedActionTypeConfig = validateConfig(actionType, config, configUtils);
+    const validatedActionTypeSecrets = validateSecrets(actionType, secrets, configUtils);
 
     this.actionTypeRegistry.ensureActionTypeEnabled(actionTypeId);
 

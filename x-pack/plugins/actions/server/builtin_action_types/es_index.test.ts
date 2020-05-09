@@ -19,6 +19,7 @@ const ACTION_TYPE_ID = '.index';
 const services = actionsMock.createServices();
 
 let actionType: ActionType;
+const mockedConfigUtils = actionsMock.createConfigUtils();
 
 beforeAll(() => {
   const { actionTypeRegistry } = createActionTypeRegistry();
@@ -43,7 +44,7 @@ describe('config validation', () => {
       refresh: false,
     };
 
-    expect(validateConfig(actionType, config)).toEqual({
+    expect(validateConfig(actionType, config, mockedConfigUtils)).toEqual({
       ...config,
       index: 'testing-123',
       refresh: false,
@@ -51,7 +52,7 @@ describe('config validation', () => {
     });
 
     config.executionTimeField = 'field-123';
-    expect(validateConfig(actionType, config)).toEqual({
+    expect(validateConfig(actionType, config, mockedConfigUtils)).toEqual({
       ...config,
       index: 'testing-123',
       refresh: false,
@@ -59,7 +60,7 @@ describe('config validation', () => {
     });
 
     config.executionTimeField = null;
-    expect(validateConfig(actionType, config)).toEqual({
+    expect(validateConfig(actionType, config, mockedConfigUtils)).toEqual({
       ...config,
       index: 'testing-123',
       refresh: false,
@@ -69,14 +70,21 @@ describe('config validation', () => {
     delete config.index;
 
     expect(() => {
-      validateConfig(actionType, { index: 666 });
+      validateConfig(actionType, { index: 666 }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [index]: expected value of type [string] but got [number]"`
     );
     delete config.executionTimeField;
 
     expect(() => {
-      validateConfig(actionType, { index: 'testing-123', executionTimeField: true });
+      validateConfig(
+        actionType,
+        {
+          index: 'testing-123',
+          executionTimeField: true,
+        },
+        mockedConfigUtils
+      );
     }).toThrowErrorMatchingInlineSnapshot(`
 "error validating action type config: [executionTimeField]: types that failed validation:
 - [executionTimeField.0]: expected value of type [string] but got [boolean]
@@ -85,7 +93,7 @@ describe('config validation', () => {
 
     delete config.refresh;
     expect(() => {
-      validateConfig(actionType, { index: 'testing-123', refresh: 'foo' });
+      validateConfig(actionType, { index: 'testing-123', refresh: 'foo' }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [refresh]: expected value of type [boolean] but got [string]"`
     );
@@ -97,7 +105,7 @@ describe('config validation', () => {
     };
 
     expect(() => {
-      validateConfig(actionType, baseConfig);
+      validateConfig(actionType, baseConfig, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action type config: [index]: expected value of type [string] but got [undefined]"`
     );
@@ -109,7 +117,7 @@ describe('params validation', () => {
     const params: Record<string, unknown> = {
       documents: [{ rando: 'thing' }],
     };
-    expect(validateParams(actionType, params)).toMatchInlineSnapshot(`
+    expect(validateParams(actionType, params, mockedConfigUtils)).toMatchInlineSnapshot(`
         Object {
           "documents": Array [
             Object {
@@ -122,19 +130,19 @@ describe('params validation', () => {
 
   test('params validation fails when params is not valid', () => {
     expect(() => {
-      validateParams(actionType, { documents: [{}], jim: 'bob' });
+      validateParams(actionType, { documents: [{}], jim: 'bob' }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [jim]: definition for this key is missing"`
     );
 
     expect(() => {
-      validateParams(actionType, {});
+      validateParams(actionType, {}, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [documents]: expected value of type [array] but got [undefined]"`
     );
 
     expect(() => {
-      validateParams(actionType, { documents: ['should be an object'] });
+      validateParams(actionType, { documents: ['should be an object'] }, mockedConfigUtils);
     }).toThrowErrorMatchingInlineSnapshot(
       `"error validating action params: [documents.0]: could not parse record value from json input"`
     );
