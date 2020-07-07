@@ -14,6 +14,7 @@ interface TransformActionParamsOptions {
   spaceId: string;
   tags?: string[];
   alertInstanceId: string;
+  alertInstanceName: string;
   actionParams: AlertActionParams;
   state: State;
   context: Context;
@@ -25,6 +26,7 @@ export function transformActionParams({
   spaceId,
   tags,
   alertInstanceId,
+  alertInstanceName,
   context,
   actionParams,
   state,
@@ -35,12 +37,15 @@ export function transformActionParams({
     // when the list of variables we pass in here changes,
     // the UI will need to be updated as well; see:
     // x-pack/plugins/triggers_actions_ui/public/application/lib/action_variables.ts
+    const alertInstanceNameOrId = alertInstanceName ?? alertInstanceId;
     const variables = {
       alertId,
       alertName,
       spaceId,
       tags,
       alertInstanceId,
+      alertInstanceName,
+      alertInstanceNameOrId,
       context,
       state,
     };

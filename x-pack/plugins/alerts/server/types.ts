@@ -45,8 +45,12 @@ export interface Services {
   ): ILegacyScopedClusterClient['callAsCurrentUser'];
 }
 
+interface AlertInstanceFactoryOptions {
+  name?: string;
+}
+
 export interface AlertServices extends Services {
-  alertInstanceFactory: (id: string) => AlertInstance;
+  alertInstanceFactory: (id: string, options?: AlertInstanceFactoryOptions) => AlertInstance;
 }
 
 export interface AlertExecutorOptions {

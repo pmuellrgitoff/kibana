@@ -422,7 +422,9 @@ describe('Task Runner', () => {
   test('persists alertInstances passed in from state, only if they are scheduled for execution', async () => {
     alertType.executor.mockImplementation(
       ({ services: executorServices }: AlertExecutorOptions) => {
-        executorServices.alertInstanceFactory('1').scheduleActions('default');
+        executorServices
+          .alertInstanceFactory('1', { name: 'ignored-name' })
+          .scheduleActions('default');
       }
     );
     const taskRunner = new TaskRunner(
@@ -432,7 +434,7 @@ describe('Task Runner', () => {
         state: {
           ...mockedTaskInstance.state,
           alertInstances: {
-            '1': { meta: {}, state: { bar: false } },
+            '1': { name: 'one', meta: {}, state: { bar: false } },
             '2': { meta: {}, state: { bar: false } },
           },
         },
@@ -458,6 +460,7 @@ describe('Task Runner', () => {
               "group": "default",
             },
           },
+          "name": "one",
           "state": Object {
             "bar": false,
           },

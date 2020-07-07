@@ -21,10 +21,12 @@ interface ScheduledExecutionOptions {
 export type AlertInstances = Record<string, AlertInstance>;
 export class AlertInstance {
   private scheduledExecutionOptions?: ScheduledExecutionOptions;
+  private name?: string;
   private meta: AlertInstanceMeta;
   private state: AlertInstanceState;
 
-  constructor({ state = {}, meta = {} }: RawAlertInstance = {}) {
+  constructor({ state = {}, meta = {}, name }: RawAlertInstance = {}) {
+    this.name = name;
     this.state = state;
     this.meta = meta;
   }
@@ -62,6 +64,10 @@ export class AlertInstance {
     return this.state;
   }
 
+  getName() {
+    return this.name;
+  }
+
   scheduleActions(actionGroup: string, context: Context = {}) {
     if (this.hasScheduledActions()) {
       throw new Error('Alert instance execution has already been scheduled, cannot schedule twice');
@@ -88,6 +94,7 @@ export class AlertInstance {
 
   toRaw(): RawAlertInstance {
     return {
+      name: this.name,
       state: this.state,
       meta: this.meta,
     };

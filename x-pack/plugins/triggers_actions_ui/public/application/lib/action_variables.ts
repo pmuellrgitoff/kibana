@@ -62,5 +62,24 @@ function getAlwaysProvidedActionVariables(): ActionVariable[] {
     }),
   });
 
+  result.push({
+    name: 'alertInstanceName',
+    description: i18n.translate('xpack.triggersActionsUI.actionVariables.alertInstanceNameLabel', {
+      defaultMessage:
+        'The name of the alert instance that scheduled actions for the alert, if provided.',
+    }),
+  });
+
+  result.push({
+    name: 'alertInstanceNameOrId',
+    description: i18n.translate(
+      'xpack.triggersActionsUI.actionVariables.alertInstanceNameOrIdLabel',
+      {
+        defaultMessage:
+          'The name of the alert instance that scheduled actions for the alert, if provided, otherwise the id.',
+      }
+    ),
+  });
+
   return result;
 }

@@ -18,6 +18,7 @@ const stateSchema = t.record(t.string, t.unknown);
 export type AlertInstanceState = t.TypeOf<typeof stateSchema>;
 
 export const rawAlertInstance = t.partial({
+  name: t.string,
   state: stateSchema,
   meta: metaSchema,
 });

@@ -109,6 +109,18 @@ describe('getState()', () => {
   });
 });
 
+describe('getName()', () => {
+  test('returns undefined if no name provided', () => {
+    const alertInstance = new AlertInstance();
+    expect(alertInstance.getName()).toEqual(undefined);
+  });
+
+  test('returns name if provided', () => {
+    const alertInstance = new AlertInstance({ name: 'foo' });
+    expect(alertInstance.getName()).toEqual('foo');
+  });
+});
+
 describe('scheduleActions()', () => {
   test('makes hasScheduledActions() return true', () => {
     const alertInstance = new AlertInstance({
@@ -215,11 +227,42 @@ describe('toJSON', () => {
       '{"state":{"foo":true},"meta":{"lastScheduledActions":{"date":"1970-01-01T00:00:00.000Z","group":"default"}}}'
     );
   });
+
+  test('serializes state, meta and name', () => {
+    const alertInstance = new AlertInstance({
+      name: 'foo',
+      state: { foo: true },
+      meta: {
+        lastScheduledActions: {
+          date: new Date(),
+          group: 'default',
+        },
+      },
+    });
+    expect(JSON.stringify(alertInstance)).toEqual(
+      '{"name":"foo","state":{"foo":true},"meta":{"lastScheduledActions":{"date":"1970-01-01T00:00:00.000Z","group":"default"}}}'
+    );
+  });
 });
 
 describe('toRaw', () => {
   test('returns unserialised underlying state and meta', () => {
     const raw = {
+      state: { foo: true },
+      meta: {
+        lastScheduledActions: {
+          date: new Date(),
+          group: 'default',
+        },
+      },
+    };
+    const alertInstance = new AlertInstance(raw);
+    expect(alertInstance.toRaw()).toEqual(raw);
+  });
+
+  test('returns unserialised underlying state, meta and name', () => {
+    const raw = {
+      name: 'foo',
       state: { foo: true },
       meta: {
         lastScheduledActions: {

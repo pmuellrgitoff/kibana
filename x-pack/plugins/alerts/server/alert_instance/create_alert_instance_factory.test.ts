@@ -20,11 +20,12 @@ test('creates new instances for ones not passed in', () => {
   const alertInstanceFactory = createAlertInstanceFactory({});
   const result = alertInstanceFactory('1');
   expect(result).toMatchInlineSnapshot(`
-            Object {
-              "meta": Object {},
-              "state": Object {},
-            }
-      `);
+    Object {
+      "meta": Object {},
+      "name": undefined,
+      "state": Object {},
+    }
+  `);
 });
 
 test('reuses existing instances', () => {
@@ -44,6 +45,7 @@ test('reuses existing instances', () => {
           "group": "default",
         },
       },
+      "name": undefined,
       "state": Object {
         "foo": true,
       },
@@ -56,11 +58,27 @@ test('mutates given instances', () => {
   const alertInstanceFactory = createAlertInstanceFactory(alertInstances);
   alertInstanceFactory('1');
   expect(alertInstances).toMatchInlineSnapshot(`
-            Object {
-              "1": Object {
-                "meta": Object {},
-                "state": Object {},
-              },
-            }
-      `);
+    Object {
+      "1": Object {
+        "meta": Object {},
+        "name": undefined,
+        "state": Object {},
+      },
+    }
+  `);
+});
+
+test('creates an instance with a name', () => {
+  const alertInstances = {};
+  const alertInstanceFactory = createAlertInstanceFactory(alertInstances);
+  alertInstanceFactory('1', { name: 'one' });
+  expect(alertInstances).toMatchInlineSnapshot(`
+    Object {
+      "1": Object {
+        "meta": Object {},
+        "name": "one",
+        "state": Object {},
+      },
+    }
+  `);
 });

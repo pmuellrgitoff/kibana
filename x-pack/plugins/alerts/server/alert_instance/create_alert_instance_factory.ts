@@ -6,10 +6,14 @@
 
 import { AlertInstance } from './alert_instance';
 
+export interface AlertInstanceOptions {
+  name?: string;
+}
+
 export function createAlertInstanceFactory(alertInstances: Record<string, AlertInstance>) {
-  return (id: string): AlertInstance => {
+  return (id: string, options: AlertInstanceOptions = {}): AlertInstance => {
     if (!alertInstances[id]) {
-      alertInstances[id] = new AlertInstance();
+      alertInstances[id] = new AlertInstance(options);
     }
 
     return alertInstances[id];
