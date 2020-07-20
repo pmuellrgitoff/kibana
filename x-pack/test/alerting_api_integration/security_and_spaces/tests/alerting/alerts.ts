@@ -31,7 +31,7 @@ export default function alertTests({ getService }: FtrProviderContext) {
   const taskManagerUtils = new TaskManagerUtils(es, retry);
 
   // FLAKY: https://github.com/elastic/kibana/issues/72207
-  describe.skip('alerts', () => {
+  describe.only('alerts', () => {
     const authorizationIndex = '.kibana-test-authorization';
     const objectRemover = new ObjectRemover(supertest);
 
@@ -79,7 +79,7 @@ export default function alertTests({ getService }: FtrProviderContext) {
         });
         after(() => objectRemover.add(space.id, indexRecordActionId, 'action', 'actions'));
 
-        it('should schedule task, run alert and schedule actions when appropriate', async () => {
+        it.only('should schedule task, run alert and schedule actions when appropriate', async () => {
           const testStart = new Date();
           const reference = alertUtils.generateReference();
           const response = await alertUtils.createAlwaysFiringAction({ reference });
