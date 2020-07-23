@@ -191,6 +191,7 @@ export class TaskManager {
       // claim available tasks
       () =>
         claimAvailableTasks(
+          // contains the run now requests!
           tasksToClaim.splice(0, this.pool.availableWorkers),
           this.store.claimAvailableTasks,
           this.pool.availableWorkers,
@@ -389,7 +390,7 @@ export async function claimAvailableTasks(
 
     try {
       const { docs, claimedTasks } = await claim({
-        size: availableWorkers,
+        size: availableWorkers, // get even MORE!!!
         claimOwnershipUntil: intervalFromNow('30s')!,
         claimTasksById,
       });

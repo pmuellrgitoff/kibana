@@ -282,6 +282,8 @@ export class TaskStore {
           ),
           filterDownBy(InactiveTasks)
         ),
+        // document fields are updated here, retry at is the fallback if
+        // claimed but not run, etc
         update: updateFields({
           ownerId: this.taskManagerId,
           status: 'claiming',

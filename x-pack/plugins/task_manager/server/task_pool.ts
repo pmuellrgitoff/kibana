@@ -89,6 +89,7 @@ export class TaskPool {
     }
   }
 
+  // this will end up running the task via `handleMarkAsRunning()`
   private async attemptToRun(tasks: TaskRunner[]): Promise<TaskPoolRunResult> {
     const [tasksToRun, leftOverTasks] = partitionListByCount(tasks, this.availableWorkers);
     if (tasksToRun.length) {
@@ -114,6 +115,7 @@ export class TaskPool {
       performance.measure('taskPool.attemptToRun', 'attemptToRun_start', 'attemptToRun_stop');
     }
 
+    // we'll get this more now - the extra tasks
     if (leftOverTasks.length) {
       if (this.availableWorkers) {
         return this.attemptToRun(leftOverTasks);
@@ -123,6 +125,7 @@ export class TaskPool {
     return TaskPoolRunResult.RunningAllClaimedTasks;
   }
 
+  // rename?  it "handles" it by running it, should  be runTask or such
   private handleMarkAsRunning(taskRunner: TaskRunner) {
     this.running.add(taskRunner);
     taskRunner
