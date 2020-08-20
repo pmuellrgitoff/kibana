@@ -30,6 +30,7 @@ export function setupSavedObjects(
       'muteAll',
       'mutedInstanceIds',
       'updatedBy',
+      'executionStatus',
     ]),
   });
 }

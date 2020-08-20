@@ -339,6 +339,10 @@ describe('create()', () => {
         ],
         "alertTypeId": "123",
         "createdAt": 2019-02-12T21:01:22.479Z,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -372,6 +376,11 @@ describe('create()', () => {
         "createdAt": "2019-02-12T21:01:22.479Z",
         "createdBy": "elastic",
         "enabled": true,
+        "executionStatus": Object {
+          "date": "2019-02-12T21:01:22.479Z",
+          "error": null,
+          "status": "unknown",
+        },
         "muteAll": false,
         "mutedInstanceIds": Array [],
         "name": "abc",
@@ -564,6 +573,10 @@ describe('create()', () => {
         ],
         "alertTypeId": "123",
         "createdAt": 2019-02-12T21:01:22.479Z,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -638,6 +651,10 @@ describe('create()', () => {
         "alertTypeId": "123",
         "createdAt": 2019-02-12T21:01:22.479Z,
         "enabled": false,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -1002,6 +1019,11 @@ describe('create()', () => {
         muteAll: false,
         mutedInstanceIds: [],
         tags: ['foo'],
+        executionStatus: {
+          date: '2019-02-12T21:01:22.479Z',
+          status: 'unknown',
+          error: null,
+        },
       },
       {
         references: [
@@ -1115,6 +1137,11 @@ describe('create()', () => {
         muteAll: false,
         mutedInstanceIds: [],
         tags: ['foo'],
+        executionStatus: {
+          date: '2019-02-12T21:01:22.479Z',
+          status: 'unknown',
+          error: null,
+        },
       },
       {
         references: [
@@ -1797,15 +1824,10 @@ describe('muteInstance()', () => {
     });
 
     await alertsClient.muteInstance({ alertId: '1', alertInstanceId: '2' });
-    expect(unsecuredSavedObjectsClient.update).toHaveBeenCalledWith(
-      'alert',
-      '1',
-      {
-        mutedInstanceIds: ['2'],
-        updatedBy: 'elastic',
-      },
-      { version: '123' }
-    );
+    expect(unsecuredSavedObjectsClient.update).toHaveBeenCalledWith('alert', '1', {
+      mutedInstanceIds: ['2'],
+      updatedBy: 'elastic',
+    });
   });
 
   test('skips muting when alert instance already muted', async () => {
@@ -1930,15 +1952,10 @@ describe('unmuteInstance()', () => {
     });
 
     await alertsClient.unmuteInstance({ alertId: '1', alertInstanceId: '2' });
-    expect(unsecuredSavedObjectsClient.update).toHaveBeenCalledWith(
-      'alert',
-      '1',
-      {
-        mutedInstanceIds: [],
-        updatedBy: 'elastic',
-      },
-      { version: '123' }
-    );
+    expect(unsecuredSavedObjectsClient.update).toHaveBeenCalledWith('alert', '1', {
+      mutedInstanceIds: [],
+      updatedBy: 'elastic',
+    });
   });
 
   test('skips unmuting when alert instance not muted', async () => {
@@ -2089,6 +2106,10 @@ describe('get()', () => {
         ],
         "alertTypeId": "123",
         "createdAt": 2019-02-12T21:01:22.479Z,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -2411,6 +2432,11 @@ const BaseAlertStatusSavedObject: SavedObject<RawAlert> = {
     throttle: null,
     muteAll: false,
     mutedInstanceIds: [],
+    executionStatus: {
+      status: 'unknown',
+      date: '2020-08-20T19:23:38Z',
+      error: null,
+    },
   },
   references: [],
 };
@@ -2682,6 +2708,10 @@ describe('find()', () => {
             ],
             "alertTypeId": "myType",
             "createdAt": 2019-02-12T21:01:22.479Z,
+            "executionStatus": Object {
+              "date": 2019-02-12T21:01:22.479Z,
+              "status": "unknown",
+            },
             "id": "1",
             "params": Object {
               "bar": true,
@@ -3127,6 +3157,10 @@ describe('update()', () => {
         ],
         "createdAt": 2019-02-12T21:01:22.479Z,
         "enabled": true,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -3304,6 +3338,10 @@ describe('update()', () => {
         "apiKey": "MTIzOmFiYw==",
         "createdAt": 2019-02-12T21:01:22.479Z,
         "enabled": true,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,
@@ -3455,6 +3493,10 @@ describe('update()', () => {
         "apiKey": null,
         "createdAt": 2019-02-12T21:01:22.479Z,
         "enabled": false,
+        "executionStatus": Object {
+          "date": 2019-02-12T21:01:22.479Z,
+          "status": "unknown",
+        },
         "id": "1",
         "params": Object {
           "bar": true,

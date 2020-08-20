@@ -11,7 +11,13 @@ import { ConcreteTaskInstance } from '../../../task_manager/server';
 import { createExecutionHandler } from './create_execution_handler';
 import { AlertInstance, createAlertInstanceFactory } from '../alert_instance';
 import { getNextRunAt } from './get_next_run_at';
-import { validateAlertTypeParams } from '../lib';
+import {
+  validateAlertTypeParams,
+  executionStatusFromState,
+  executionStatusFromError,
+  alertExecutionStatusToRaw,
+  ErrorWithReason,
+} from '../lib';
 import {
   AlertType,
   RawAlert,
@@ -22,13 +28,14 @@ import {
   Alert,
   AlertExecutorOptions,
   SanitizedAlert,
+  AlertExecutionStatus,
 } from '../types';
 import { promiseResult, map, Resultable, asOk, asErr, resolveErr } from '../lib/result_type';
 import { taskInstanceToAlertTaskInstance } from './alert_task_instance';
 import { EVENT_LOG_ACTIONS } from '../plugin';
 import { IEvent, IEventLogger, SAVED_OBJECT_REL_PRIMARY } from '../../../event_log/server';
 import { isAlertSavedObjectNotFoundError } from '../lib/is_alert_not_found_error';
-import { AlertsClient } from '../alerts_client';
+import { AlertsClient, partiallyUpdateAlertSavedObject } from '../alerts_client';
 
 const FALLBACK_RETRY_INTERVAL: IntervalSchedule = { interval: '5m' };
 
@@ -62,15 +69,19 @@ export class TaskRunner {
     const namespace = this.context.spaceIdToNamespace(spaceId);
     // Only fetch encrypted attributes here, we'll create a saved objects client
     // scoped with the API key to fetch the remaining data.
-    const {
-      attributes: { apiKey },
-    } = await this.context.encryptedSavedObjectsClient.getDecryptedAsInternalUser<RawAlert>(
-      'alert',
-      alertId,
-      { namespace }
-    );
+    try {
+      const {
+        attributes: { apiKey },
+      } = await this.context.encryptedSavedObjectsClient.getDecryptedAsInternalUser<RawAlert>(
+        'alert',
+        alertId,
+        { namespace }
+      );
 
-    return apiKey;
+      return apiKey;
+    } catch (err) {
+      throw new ErrorWithReason('decrypt', err);
+    }
   }
 
   private getFakeKibanaRequest(spaceId: string, apiKey: string | null) {
@@ -255,18 +266,28 @@ export class TaskRunner {
       params: { alertId, spaceId },
     } = this.taskInstance;
 
-    // Validate
-    const validatedParams = validateAlertTypeParams(this.alertType, alert.params);
-    const executionHandler = this.getExecutionHandler(
-      alertId,
-      alert.name,
-      alert.tags,
-      spaceId,
-      apiKey,
-      alert.actions,
-      alert.params
-    );
-    return this.executeAlertInstances(services, alert, validatedParams, executionHandler, spaceId);
+    try {
+      // Validate
+      const validatedParams = validateAlertTypeParams(this.alertType, alert.params);
+      const executionHandler = this.getExecutionHandler(
+        alertId,
+        alert.name,
+        alert.tags,
+        spaceId,
+        apiKey,
+        alert.actions,
+        alert.params
+      );
+      return this.executeAlertInstances(
+        services,
+        alert,
+        validatedParams,
+        executionHandler,
+        spaceId
+      );
+    } catch (err) {
+      throw new ErrorWithReason('execute', err);
+    }
   }
 
   async loadAlertAttributesAndRun(): Promise<Resultable<AlertTaskRunResult, Error>> {
@@ -274,14 +295,20 @@ export class TaskRunner {
       params: { alertId, spaceId },
     } = this.taskInstance;
 
-    const apiKey = await this.getApiKeyForAlertPermissions(alertId, spaceId);
-    const [services, alertsClient] = await this.getServicesWithSpaceLevelPermissions(
-      spaceId,
-      apiKey
-    );
+    let apiKey: string | null;
+    let services: Services;
+    let alertsClient: Pick<AlertsClient, MethodKeysOf<AlertsClient>>;
+    let alert: SanitizedAlert;
 
-    // Ensure API key is still valid and user has access
-    const alert = await alertsClient.get({ id: alertId });
+    try {
+      apiKey = await this.getApiKeyForAlertPermissions(alertId, spaceId);
+      [services, alertsClient] = this.getServicesWithSpaceLevelPermissions(spaceId, apiKey);
+
+      // Ensure API key is still valid and user has access
+      alert = await alertsClient.get({ id: alertId });
+    } catch (err) {
+      throw new ErrorWithReason('read', err);
+    }
 
     return {
       state: await promiseResult<AlertTaskState, Error>(
@@ -301,12 +328,38 @@ export class TaskRunner {
 
   async run(): Promise<AlertTaskRunResult> {
     const {
-      params: { alertId },
+      params: { alertId, spaceId },
       startedAt: previousStartedAt,
       state: originalState,
     } = this.taskInstance;
 
     const { state, runAt } = await errorAsAlertTaskRunResult(this.loadAlertAttributesAndRun());
+    const namespace = spaceId === 'default' ? undefined : spaceId;
+
+    const executionStatus: AlertExecutionStatus = map(
+      state,
+      (alertTaskState: AlertTaskState) => executionStatusFromState(alertTaskState),
+      (err: Error) => executionStatusFromError(err)
+    );
+    this.logger.debug(
+      `alertExecutionStatus for ${this.alertType.id}:${alertId}: ${JSON.stringify(executionStatus)}`
+    );
+
+    const client = this.context.internalSavedObjectsRepository;
+    const attributes = {
+      executionStatus: alertExecutionStatusToRaw(executionStatus),
+    };
+
+    try {
+      await partiallyUpdateAlertSavedObject(client, alertId, attributes, {
+        ignore404: true,
+        namespace,
+      });
+    } catch (err) {
+      this.logger.error(
+        `error updating alert execution status for ${this.alertType.id}:${alertId} ${err.message}`
+      );
+    }
 
     return {
       state: map<AlertTaskState, Error, AlertTaskState>(

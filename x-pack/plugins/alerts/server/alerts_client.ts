@@ -12,7 +12,9 @@ import {
   SavedObjectsClientContract,
   SavedObjectReference,
   SavedObject,
-} from 'src/core/server';
+  ISavedObjectsRepository,
+  SavedObjectsErrorHelpers,
+} from '../../../../src/core/server';
 import { ActionsClient, ActionsAuthorization } from '../../actions/server';
 import {
   Alert,
@@ -25,6 +27,8 @@ import {
   SanitizedAlert,
   AlertTaskState,
   AlertStatus,
+  AlertExecutionStatus,
+  RawAlertExecutionStatus,
 } from './types';
 import { validateAlertTypeParams } from './lib';
 import {
@@ -121,6 +125,7 @@ export interface CreateOptions {
     | 'muteAll'
     | 'mutedInstanceIds'
     | 'actions'
+    | 'executionStatus'
   > & { actions: NormalizedAlertAction[] };
   options?: {
     migrationVersion?: Record<string, string>;
@@ -224,6 +229,11 @@ export class AlertsClient {
       params: validatedAlertTypeParams as RawAlert['params'],
       muteAll: false,
       mutedInstanceIds: [],
+      executionStatus: {
+        status: 'unknown',
+        date: new Date().toISOString(),
+        error: null,
+      },
     };
     const createdAlert = await this.unsecuredSavedObjectsClient.create('alert', rawAlert, {
       ...options,
@@ -355,12 +365,20 @@ export class AlertsClient {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const authorizedData = data.map(({ id, attributes, updated_at, references }) => {
       ensureAlertTypeIsAuthorized(attributes.alertTypeId, attributes.consumer);
-      return this.getAlertFromRaw(
+      const alert: Partial<Alert> = this.getAlertFromRaw(
         id,
         fields ? (pick(attributes, fields) as RawAlert) : attributes,
         updated_at,
         references
       );
+      // executionStatus is a possibly added field by getAlertFromRaw(), so we
+      // need to remove it if it wasn't listed in the fields
+      if (fields && !fields.includes('executionStatus')) {
+        delete alert.executionStatus;
+      }
+      // this is bad and wrong and will be fixed some day, see:
+      // https://github.com/elastic/kibana/issues/76527
+      return alert as Alert;
     });
 
     logSuccessfulAuthorization();
@@ -413,6 +431,14 @@ export class AlertsClient {
   }
 
   public async update({ id, data }: UpdateOptions): Promise<PartialAlert> {
+    return await retryForConflicts(
+      this.logger,
+      `update(${id})`,
+      async () => await this.updateBasic({ id, data })
+    );
+  }
+
+  private async updateBasic({ id, data }: UpdateOptions): Promise<PartialAlert> {
     let alertSavedObject: SavedObject<RawAlert>;
 
     try {
@@ -520,7 +546,15 @@ export class AlertsClient {
         };
   }
 
-  public async updateApiKey({ id }: { id: string }) {
+  public async updateApiKey({ id }: { id: string }): Promise<void> {
+    return await retryForConflicts(
+      this.logger,
+      `updateApiKey(${id})`,
+      async () => await this.updateApiKeyBasic({ id })
+    );
+  }
+
+  private async updateApiKeyBasic({ id }: { id: string }): Promise<void> {
     let apiKeyToInvalidate: string | null = null;
     let attributes: RawAlert;
     let version: string | undefined;
@@ -588,7 +622,15 @@ export class AlertsClient {
     }
   }
 
-  public async enable({ id }: { id: string }) {
+  public async enable({ id }: { id: string }): Promise<void> {
+    return await retryForConflicts(
+      this.logger,
+      `enable(${id})`,
+      async () => await this.enableBasic({ id })
+    );
+  }
+
+  private async enableBasic({ id }: { id: string }): Promise<void> {
     let apiKeyToInvalidate: string | null = null;
     let attributes: RawAlert;
     let version: string | undefined;
@@ -649,7 +691,15 @@ export class AlertsClient {
     }
   }
 
-  public async disable({ id }: { id: string }) {
+  public async disable({ id }: { id: string }): Promise<void> {
+    return await retryForConflicts(
+      this.logger,
+      `disable(${id})`,
+      async () => await this.disableBasic({ id })
+    );
+  }
+
+  private async disableBasic({ id }: { id: string }): Promise<void> {
     let apiKeyToInvalidate: string | null = null;
     let attributes: RawAlert;
     let version: string | undefined;
@@ -702,7 +752,7 @@ export class AlertsClient {
     }
   }
 
-  public async muteAll({ id }: { id: string }) {
+  public async muteAll({ id }: { id: string }): Promise<void> {
     const { attributes } = await this.unsecuredSavedObjectsClient.get<RawAlert>('alert', id);
     await this.authorization.ensureAuthorized(
       attributes.alertTypeId,
@@ -714,14 +764,14 @@ export class AlertsClient {
       await this.actionsAuthorization.ensureAuthorized('execute');
     }
 
-    await this.unsecuredSavedObjectsClient.update('alert', id, {
+    await partiallyUpdateAlertSavedObjectViaClient(this.unsecuredSavedObjectsClient, id, {
       muteAll: true,
       mutedInstanceIds: [],
       updatedBy: await this.getUserName(),
     });
   }
 
-  public async unmuteAll({ id }: { id: string }) {
+  public async unmuteAll({ id }: { id: string }): Promise<void> {
     const { attributes } = await this.unsecuredSavedObjectsClient.get<RawAlert>('alert', id);
     await this.authorization.ensureAuthorized(
       attributes.alertTypeId,
@@ -733,18 +783,15 @@ export class AlertsClient {
       await this.actionsAuthorization.ensureAuthorized('execute');
     }
 
-    await this.unsecuredSavedObjectsClient.update('alert', id, {
+    await partiallyUpdateAlertSavedObjectViaClient(this.unsecuredSavedObjectsClient, id, {
       muteAll: false,
       mutedInstanceIds: [],
       updatedBy: await this.getUserName(),
     });
   }
 
-  public async muteInstance({ alertId, alertInstanceId }: MuteOptions) {
-    const { attributes, version } = await this.unsecuredSavedObjectsClient.get<Alert>(
-      'alert',
-      alertId
-    );
+  public async muteInstance({ alertId, alertInstanceId }: MuteOptions): Promise<void> {
+    const { attributes } = await this.unsecuredSavedObjectsClient.get<Alert>('alert', alertId);
 
     await this.authorization.ensureAuthorized(
       attributes.alertTypeId,
@@ -759,15 +806,10 @@ export class AlertsClient {
     const mutedInstanceIds = attributes.mutedInstanceIds || [];
     if (!attributes.muteAll && !mutedInstanceIds.includes(alertInstanceId)) {
       mutedInstanceIds.push(alertInstanceId);
-      await this.unsecuredSavedObjectsClient.update(
-        'alert',
-        alertId,
-        {
-          mutedInstanceIds,
-          updatedBy: await this.getUserName(),
-        },
-        { version }
-      );
+      await partiallyUpdateAlertSavedObjectViaClient(this.unsecuredSavedObjectsClient, alertId, {
+        mutedInstanceIds,
+        updatedBy: await this.getUserName(),
+      });
     }
   }
 
@@ -777,11 +819,8 @@ export class AlertsClient {
   }: {
     alertId: string;
     alertInstanceId: string;
-  }) {
-    const { attributes, version } = await this.unsecuredSavedObjectsClient.get<Alert>(
-      'alert',
-      alertId
-    );
+  }): Promise<void> {
+    const { attributes } = await this.unsecuredSavedObjectsClient.get<Alert>('alert', alertId);
     await this.authorization.ensureAuthorized(
       attributes.alertTypeId,
       attributes.consumer,
@@ -793,16 +832,10 @@ export class AlertsClient {
 
     const mutedInstanceIds = attributes.mutedInstanceIds || [];
     if (!attributes.muteAll && mutedInstanceIds.includes(alertInstanceId)) {
-      await this.unsecuredSavedObjectsClient.update(
-        'alert',
-        alertId,
-        {
-          updatedBy: await this.getUserName(),
-
-          mutedInstanceIds: mutedInstanceIds.filter((id: string) => id !== alertInstanceId),
-        },
-        { version }
-      );
+      await partiallyUpdateAlertSavedObjectViaClient(this.unsecuredSavedObjectsClient, alertId, {
+        updatedBy: await this.getUserName(),
+        mutedInstanceIds: mutedInstanceIds.filter((id: string) => id !== alertInstanceId),
+      });
     }
   }
 
@@ -864,11 +897,13 @@ export class AlertsClient {
     updatedAt: SavedObject['updated_at'] = createdAt,
     references: SavedObjectReference[] | undefined
   ): PartialAlert {
+    const executionStatus = this.rawAlertToExecutionStatus(rawAlert);
     return {
       id,
       ...rawAlert,
       // we currently only support the Interval Schedule type
       // Once we support additional types, this type signature will likely change
+      executionStatus,
       schedule: rawAlert.schedule as IntervalSchedule,
       actions: rawAlert.actions
         ? this.injectReferencesIntoActions(id, rawAlert.actions, references || [])
@@ -876,6 +911,22 @@ export class AlertsClient {
       ...(updatedAt ? { updatedAt: new Date(updatedAt) } : {}),
       ...(createdAt ? { createdAt: new Date(createdAt) } : {}),
     };
+  }
+
+  private rawAlertToExecutionStatus(rawAlert: Partial<RawAlert> = {}): AlertExecutionStatus {
+    const rawExecutionStatus: Partial<RawAlertExecutionStatus> = rawAlert.executionStatus || {};
+    const { status: rawStatus, date: rawDate, error: rawError } = rawExecutionStatus;
+
+    const result: AlertExecutionStatus = {
+      status: rawStatus || 'unknown',
+      date: rawDate ? new Date(rawDate) : new Date(),
+    };
+
+    if (rawError) {
+      result.error = rawError;
+    }
+
+    return result;
   }
 
   private validateActions(alertType: AlertType, actions: NormalizedAlertAction[]): void {
@@ -941,6 +992,101 @@ export class AlertsClient {
 
   private generateAPIKeyName(alertTypeId: string, alertName: string) {
     return truncate(`Alerting: ${alertTypeId}/${trim(alertName)}`, { length: 256 });
+  }
+}
+
+type RetryableForConflicts<T> = () => Promise<T>;
+const RetryForConflictsAttempts = 10;
+const RetryForConflictsDelay = 250;
+
+// retry an operation if it runs into 409 Conflict's, up to a limit
+async function retryForConflicts<T>(
+  logger: Logger,
+  name: string,
+  operation: RetryableForConflicts<T>,
+  retries: number = RetryForConflictsAttempts
+): Promise<T> {
+  let error: Error;
+
+  // run the operation, return if no errors or throw if not a conflict error
+  try {
+    return await operation();
+  } catch (err) {
+    error = err;
+    if (!SavedObjectsErrorHelpers.isConflictError(err)) {
+      throw err;
+    }
+  }
+
+  // must be a conflict; if no retries left, throw it
+  if (retries <= 0) {
+    throw error;
+  }
+
+  // delay a bit before retrying
+  logger.warn(`alertClient ${name} conflict, retrying ...`);
+  await delay(RetryForConflictsDelay);
+  return await retryForConflicts(logger, name, operation, retries - 1);
+}
+
+async function delay(millis: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, millis));
+}
+
+// extend, in the future, if other attributes need to be system-updated
+// DO NOT use attributes which contribute to AAD or are encrypted!!
+
+type PartiallyUpdateableAlertAttributes = Partial<
+  Pick<RawAlert, 'updatedBy' | 'muteAll' | 'mutedInstanceIds' | 'executionStatus'>
+>;
+const PartiallyUpdateableAlertAttributeNames = [
+  'updatedBy',
+  'muteAll',
+  'mutedInstanceIds',
+  'executionStatus',
+];
+
+interface PartiallyUpdateAlertSavedObjectOptions {
+  ignore404?: boolean;
+  namespace?: string; // only should be used  with ISavedObjectsRepository
+}
+
+// direct, partial update to an alert saved object via scoped SavedObjectsClient
+// using namespace set in the client
+async function partiallyUpdateAlertSavedObjectViaClient(
+  savedObjectsClient: SavedObjectsClientContract,
+  id: string,
+  attributes: PartiallyUpdateableAlertAttributes,
+  options?: PartiallyUpdateAlertSavedObjectOptions
+): Promise<void | ReturnType<SavedObjectsClientContract['update']>> {
+  const attributeUpdates = pick(attributes, PartiallyUpdateableAlertAttributeNames);
+  try {
+    return await savedObjectsClient.update<RawAlert>('alert', id, attributeUpdates);
+  } catch (err) {
+    if (options?.ignore404 && SavedObjectsErrorHelpers.isNotFoundError(err)) {
+      return;
+    }
+    throw err;
+  }
+}
+
+// direct, partial update to an alert saved object via ISavedObjectsRepository
+// which uses the namespace passed in options
+export async function partiallyUpdateAlertSavedObject(
+  savedObjectsClient: ISavedObjectsRepository,
+  id: string,
+  attributes: PartiallyUpdateableAlertAttributes,
+  options?: PartiallyUpdateAlertSavedObjectOptions
+): Promise<void | ReturnType<SavedObjectsClientContract['update']>> {
+  const attributeUpdates = pick(attributes, PartiallyUpdateableAlertAttributeNames);
+  const updateOptions = options?.namespace ? { namespace: options.namespace } : {};
+  try {
+    return await savedObjectsClient.update<RawAlert>('alert', id, attributeUpdates, updateOptions);
+  } catch (err) {
+    if (options?.ignore404 && SavedObjectsErrorHelpers.isNotFoundError(err)) {
+      return;
+    }
+    throw err;
   }
 }
 

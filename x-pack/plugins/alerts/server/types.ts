@@ -24,6 +24,8 @@ import {
   AlertTypeState,
   AlertInstanceContext,
   AlertInstanceState,
+  AlertExecutionStatuses,
+  AlertExecutionStatusErrorReasons,
 } from '../common';
 
 export type WithoutQueryAndParams<T> = Pick<T, Exclude<keyof T, 'query' | 'params'>>;
@@ -111,6 +113,15 @@ export interface RawAlertAction extends SavedObjectAttributes {
   params: AlertActionParams;
 }
 
+export interface RawAlertExecutionStatus extends SavedObjectAttributes {
+  status: AlertExecutionStatuses;
+  date: string;
+  error: null | {
+    reason: AlertExecutionStatusErrorReasons;
+    message: string;
+  };
+}
+
 export type PartialAlert = Pick<Alert, 'id'> & Partial<Omit<Alert, 'id'>>;
 
 export interface RawAlert extends SavedObjectAttributes {
@@ -131,6 +142,7 @@ export interface RawAlert extends SavedObjectAttributes {
   throttle: string | null;
   muteAll: boolean;
   mutedInstanceIds: string[];
+  executionStatus: RawAlertExecutionStatus;
 }
 
 export type AlertInfoParams = Pick<

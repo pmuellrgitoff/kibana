@@ -76,6 +76,26 @@
       },
       "mutedInstanceIds": {
         "type": "keyword"
+      },
+      "executionStatus": {
+        "properties": {
+          "status": {
+            "type": "keyword"
+          },
+          "date": {
+            "type": "date"
+          },
+          "error": {
+            "properties": {
+              "reason": {
+                "type": "keyword"
+              },
+              "message": {
+                "type": "keyword"
+              }
+            }
+          }
+        }
       }
     }
   }
