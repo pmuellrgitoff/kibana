@@ -13,7 +13,7 @@ export default function uiCapabilitesTests({ loadTestFile, getService }: FtrProv
   const featuresService: FeaturesService = getService('features');
 
   describe('ui capabilities', function () {
-    this.tags('ciGroup9');
+    this.tags('8iGroup8');
 
     before(async () => {
       // we're using a basic license, so if we want to disable all features, we have to ignore the valid licenses
