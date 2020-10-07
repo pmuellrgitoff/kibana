@@ -15,7 +15,7 @@ export default function uiCapabilitiesTests({ loadTestFile, getService }: FtrPro
   const featuresService: FeaturesService = getService('features');
 
   describe('ui capabilities', function () {
-    this.tags('ciGroup9');
+    this.tags('ciGroup8');
 
     before(async () => {
       const features = await featuresService.get();

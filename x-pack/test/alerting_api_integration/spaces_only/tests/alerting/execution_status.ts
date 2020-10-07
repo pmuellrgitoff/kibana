@@ -19,7 +19,7 @@ import { FtrProviderContext } from '../../../common/ftr_provider_context';
 export default function executionStatusAlertTests({ getService }: FtrProviderContext) {
   const supertest = getService('supertest');
 
-  describe('executionStatus', () => {
+  describe.only('executionStatus', () => {
     const objectRemover = new ObjectRemover(supertest);
 
     after(async () => await objectRemover.removeAll());
