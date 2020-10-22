@@ -12,30 +12,35 @@ import {
   AlertInstanceContext,
   AlertTypeParams,
 } from '../types';
+import { PluginStartContract as ActionsPluginStartContract } from '../../../actions/server';
 
-interface TransformActionParamsOptions {
+interface AlertVariables {
   alertId: string;
   alertName: string;
   spaceId: string;
   tags?: string[];
   alertInstanceId: string;
-  actionParams: AlertActionParams;
   alertParams: AlertTypeParams;
   state: AlertInstanceState;
   context: AlertInstanceContext;
 }
 
-export function transformActionParams({
-  alertId,
-  alertName,
-  spaceId,
-  tags,
-  alertInstanceId,
-  context,
-  actionParams,
-  state,
-  alertParams,
-}: TransformActionParamsOptions): AlertActionParams {
+export function transformActionParams(
+  actionsPlugin: ActionsPluginStartContract,
+  actionTypeId: string,
+  actionParams: AlertActionParams,
+  alertVariables: AlertVariables
+) {
+  const {
+    alertId,
+    alertName,
+    spaceId,
+    tags,
+    alertInstanceId,
+    context,
+    state,
+    alertParams,
+  } = alertVariables;
   const result = cloneDeepWith(actionParams, (value: unknown) => {
     if (!isString(value)) return;
 

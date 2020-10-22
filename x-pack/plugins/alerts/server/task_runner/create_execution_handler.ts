@@ -69,14 +69,13 @@ export function createExecutionHandler({
       .map((action) => {
         return {
           ...action,
-          params: transformActionParams({
+          params: transformActionParams(actionsPlugin, action.actionTypeId, action.params, {
             alertId,
             alertName,
             spaceId,
             tags,
             alertInstanceId,
             context,
-            actionParams: action.params,
             state,
             alertParams,
           }),
