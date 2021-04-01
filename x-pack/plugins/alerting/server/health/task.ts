@@ -39,7 +39,7 @@ export async function scheduleAlertingHealthCheck(
       id: HEALTH_TASK_ID,
       taskType: HEALTH_TASK_TYPE,
       schedule: {
-        interval,
+        interval: '5s',
       },
       state: {},
       params: {},
@@ -58,6 +58,7 @@ function registerAlertingHealthCheckTask(
     [HEALTH_TASK_TYPE]: {
       title: 'Alerting framework health check task',
       createTaskRunner: healthCheckTaskRunner(logger, coreStartServices),
+      timeout: '2s',
     },
   });
 }
@@ -66,14 +67,26 @@ export function healthCheckTaskRunner(
   logger: Logger,
   coreStartServices: Promise<[CoreStart, AlertingPluginsStart, unknown]>
 ) {
+  let taskRunCount: number = 0;
   return ({ taskInstance }: RunContext) => {
     const { state } = taskInstance;
     return {
+      async cancel() {
+        console.log(`${new Date().toISOString()} - cancel() called`)
+      },
+
       async run() {
+        taskRunCount++;
+        const localTaskRunCount = taskRunCount;
+        console.log(`${localTaskRunCount} - ${new Date().toISOString()} - starting healthCheck task`)
         try {
           const alertingHealthStatus = await getHealth(
             (await coreStartServices)[0].savedObjects.createInternalRepository(['alert'])
           );
+          console.log(`${localTaskRunCount} - ${new Date().toISOString()} - ending healthChecktask: success`)
+          console.log(`${localTaskRunCount} - ${new Date().toISOString()} - but waiting another 10 seconds anyway`)
+          await new Promise((resolve) => setTimeout(resolve, 10 * 1000));
+          console.log(`${localTaskRunCount} - ${new Date().toISOString()} - ending healthChecktask for reals`)
           return {
             state: {
               runs: (state.runs || 0) + 1,
@@ -82,6 +95,7 @@ export function healthCheckTaskRunner(
           };
         } catch (errMsg) {
           logger.warn(`Error executing alerting health check task: ${errMsg}`);
+          console.log(`${localTaskRunCount} - ending healthCheck task: error`)
           return {
             state: {
               runs: (state.runs || 0) + 1,
