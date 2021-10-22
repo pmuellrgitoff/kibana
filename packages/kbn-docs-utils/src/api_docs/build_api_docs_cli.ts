@@ -11,6 +11,7 @@ import Path from 'path';
 
 import { REPO_ROOT, run, CiStatsReporter, createFlagError } from '@kbn/dev-utils';
 import { Project } from 'ts-morph';
+import { writeDependencyGraph } from './write_dependency_graphs';
 
 import { writePluginDocs } from './mdx/write_plugin_mdx_docs';
 import {
@@ -74,6 +75,8 @@ export function runBuildApiDocsCli() {
           }
         });
       }
+      writeDependencyGraph(outputFolder, plugins);
+
       const collectReferences = flags.references as boolean;
 
       const { pluginApiMap, missingApiItems, unReferencedDeprecations, referencedDeprecations } =
