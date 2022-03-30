@@ -25,6 +25,7 @@ const ruleExecutionMetricsSchema = t.partial({
 const alertExecutionStore = t.partial({
   numberOfTriggeredActions: t.number,
   numberOfScheduledActions: t.number,
+  numberOfSnoozedActions: t.number,
   triggeredActionsStatus: t.string,
 });
 

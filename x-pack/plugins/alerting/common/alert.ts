@@ -50,6 +50,7 @@ export interface AlertExecutionStatus {
   status: AlertExecutionStatuses;
   numberOfTriggeredActions?: number;
   numberOfScheduledActions?: number;
+  numberOfSnoozedActions?: number;
   metrics?: RuleExecutionMetrics;
   lastExecutionDate: Date;
   lastDuration?: number;
