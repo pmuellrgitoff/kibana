@@ -26,8 +26,9 @@ import {
   errorResult,
   successResult,
 } from '../../../common/slack_api/lib';
-import { SLACK_API_CONNECTOR_ID, SLACK_URL } from '../../../common/slack_api/constants';
+import { SLACK_API_CONNECTOR_ID } from '../../../common/slack_api/constants';
 import { getRetryAfterIntervalFromHeaders } from '../lib/http_response_retry_header';
+import { internalGetSlackApiURL } from '../../../common/slack_api/lib';
 
 const buildSlackExecutorErrorResponse = ({
   slackApiError,
@@ -112,7 +113,7 @@ export const createExternalService = (
   }
 
   const axiosInstance = axios.create({
-    baseURL: SLACK_URL,
+    baseURL: internalGetSlackApiURL(),
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-type': 'application/json; charset=UTF-8',

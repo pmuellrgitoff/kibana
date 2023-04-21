@@ -21,10 +21,11 @@ import type {
   SlackApiSecrets,
 } from '../../../common/slack_api/types';
 import { SlackApiSecretsSchema, SlackApiParamsSchema } from '../../../common/slack_api/schema';
-import { SLACK_API_CONNECTOR_ID, SLACK_URL } from '../../../common/slack_api/constants';
+import { SLACK_API_CONNECTOR_ID } from '../../../common/slack_api/constants';
 import { SLACK_CONNECTOR_NAME } from './translations';
 import { api } from './api';
 import { createExternalService } from './service';
+import { internalGetSlackApiURL } from '../../../common/slack_api/lib';
 
 const supportedSubActions = ['getChannels', 'postMessage'];
 
@@ -53,7 +54,7 @@ const validateSlackUrl = (secretsObject: SlackApiSecrets, validatorServices: Val
   const { configurationUtilities } = validatorServices;
 
   try {
-    configurationUtilities.ensureUriAllowed(SLACK_URL);
+    configurationUtilities.ensureUriAllowed(internalGetSlackApiURL());
   } catch (allowedListError) {
     throw new Error(
       i18n.translate('xpack.stackConnectors.slack_api.configurationError', {
