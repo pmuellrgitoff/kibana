@@ -29,6 +29,7 @@ import {
 } from '@kbn/rule-registry-plugin/server/utils/create_lifecycle_executor';
 import { Dataset, IRuleDataClient, RuleDataService } from '@kbn/rule-registry-plugin/server';
 import { RuleExecutorOptions } from '@kbn/alerting-plugin/server';
+import { getDataStreamAdapter } from '@kbn/alerting-plugin/server/alerts_service/lib/data_stream_adapter';
 import type { FtrProviderContext } from '../../../common/ftr_provider_context';
 import {
   MockRuleParams,
@@ -37,13 +38,17 @@ import {
   MockAlertState,
   MockAllowedActionGroups,
 } from '../../../common/types';
-import { cleanupRegistryIndices, getMockAlertFactory } from '../../../common/lib/helpers';
+import {
+  cleanupRegistryIndices,
+  getMockAlertFactory,
+  isUsingDataStreamForAlerts,
+} from '../../../common/lib/helpers';
 
 // eslint-disable-next-line import/no-default-export
 export default function createLifecycleExecutorApiTest({ getService }: FtrProviderContext) {
   const es = getService('es');
-
   const log = getService('log');
+  const useDataStreamForAlerts = isUsingDataStreamForAlerts(getService);
 
   const fakeLogger = <Meta extends LogMeta = LogMeta>(msg: string, meta?: Meta) =>
     meta ? log.debug(msg, meta) : log.debug(msg);
@@ -64,6 +69,8 @@ export default function createLifecycleExecutorApiTest({ getService }: FtrProvid
     const client = es as ElasticsearchClient;
     return Promise.resolve(client);
   };
+
+  const dataStreamAdapter = getDataStreamAdapter({ useDataStreamForAlerts });
 
   describe('createLifecycleExecutor', () => {
     let ruleDataClient: IRuleDataClient;
@@ -86,6 +93,7 @@ export default function createLifecycleExecutorApiTest({ getService }: FtrProvid
           getContextInitializationPromise: async () => ({ result: false }),
         },
         pluginStop$,
+        dataStreamAdapter,
       });
 
       // This initializes the service. This happens immediately after the creation
@@ -201,6 +209,7 @@ export default function createLifecycleExecutorApiTest({ getService }: FtrProvid
           lookBackWindow: 20,
           statusChangeThreshold: 4,
         },
+        dataStreamAdapter,
       } as unknown as RuleExecutorOptions<
         MockRuleParams,
         WrappedLifecycleRuleState<MockRuleState>,

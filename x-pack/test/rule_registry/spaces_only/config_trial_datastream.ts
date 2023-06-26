@@ -9,8 +9,9 @@ import { createTestConfig } from '../common/config';
 
 // eslint-disable-next-line import/no-default-export
 export default createTestConfig('spaces_only', {
-  license: 'basic',
+  license: 'trial',
   disabledPlugins: ['security'],
   ssl: false,
-  testFiles: [require.resolve('./tests/basic')],
+  testFiles: [require.resolve('./tests/trial')],
+  useDataStreamForAlerts: true,
 });

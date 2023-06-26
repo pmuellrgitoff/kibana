@@ -29,6 +29,7 @@ export function createTestConfig(options: CreateTestConfigOptions) {
           '--xpack.encryptedSavedObjects.encryptionKey="wuGNaIhoMpk5sO4UBxgr3NyW1sFcLgIf"',
           '--xpack.observability.unsafe.thresholdRule.enabled=true',
           '--server.publicBaseUrl=https://localhost:5601',
+          `--xpack.alerting.useDataStreamForAlerts=true`,
         ],
       },
       testFiles: options.testFiles,

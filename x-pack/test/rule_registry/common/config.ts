@@ -17,6 +17,7 @@ interface CreateTestConfigOptions {
   disabledPlugins?: string[];
   ssl?: boolean;
   testFiles?: string[];
+  useDataStreamForAlerts?: boolean;
 }
 
 // test.not-enabled is specifically not enabled
@@ -80,6 +81,7 @@ export function createTestConfig(name: string, options: CreateTestConfigOptions)
           `--xpack.actions.allowedHosts=${JSON.stringify(['localhost', 'some.non.existent.com'])}`,
           `--xpack.actions.enabledActionTypes=${JSON.stringify(enabledActionTypes)}`,
           `--xpack.alerting.rules.minimumScheduleInterval.value="1s"`,
+          `--xpack.alerting.useDataStreamForAlerts=${options.useDataStreamForAlerts ?? false}`,
           '--xpack.eventLog.logEntries=true',
           ...disabledPlugins
             .filter((k) => k !== 'security')

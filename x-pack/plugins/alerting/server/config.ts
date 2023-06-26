@@ -66,6 +66,13 @@ export const configSchema = schema.object({
   enableFrameworkAlerts: schema.boolean({ defaultValue: true }),
   cancelAlertsOnRuleTimeout: schema.boolean({ defaultValue: true }),
   rules: rulesSchema,
+  useDataStreamForAlerts: schema.boolean({ defaultValue: false }),
+  // useDataStreamForAlerts: schema.conditional(
+  //   schema.contextRef('serverless'),
+  //   true,
+  //   schema.boolean({ defaultValue: true }),
+  //   schema.never()
+  // ),
 });
 
 export type AlertingConfig = TypeOf<typeof configSchema>;

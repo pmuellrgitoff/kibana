@@ -36,6 +36,7 @@ describe('config validation', () => {
             },
           },
         },
+        "useDataStreamForAlerts": false,
       }
     `);
   });

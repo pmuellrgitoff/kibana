@@ -20,6 +20,8 @@ import {
   getIndexTemplateAndPattern,
 } from './resource_installer_utils';
 import { AlertInstanceContext, AlertInstanceState, IRuleTypeAlerts, RuleAlertData } from '../types';
+import { AlertingConfig } from '../config';
+import { DataStreamAdapter, getDataStreamAdapter } from './lib/data_stream_adapter';
 import {
   createResourceInstallationHelper,
   errorResult,
@@ -47,6 +49,7 @@ interface AlertsServiceParams {
   logger: Logger;
   pluginStop$: Observable<void>;
   kibanaVersion: string;
+  config: AlertingConfig;
   elasticsearchClientPromise: Promise<ElasticsearchClient>;
   timeoutMs?: number;
 }
@@ -114,9 +117,12 @@ export class AlertsService implements IAlertsService {
   private resourceInitializationHelper: ResourceInstallationHelper;
   private registeredContexts: Map<string, IRuleTypeAlerts> = new Map();
   private commonInitPromise: Promise<InitializationPromise>;
+  private dataStreamAdapter: DataStreamAdapter;
 
   constructor(private readonly options: AlertsServiceParams) {
     this.initialized = false;
+
+    this.dataStreamAdapter = getDataStreamAdapter(options.config);
 
     // Kick off initialization of common assets and save the promise
     this.commonInitPromise = this.initializeCommon(this.options.timeoutMs);
@@ -296,6 +302,7 @@ export class AlertsService implements IAlertsService {
             esClient,
             name: DEFAULT_ALERTS_ILM_POLICY_NAME,
             policy: DEFAULT_ALERTS_ILM_POLICY,
+            dataStreamAdapter: this.dataStreamAdapter,
           }),
         () =>
           createOrUpdateComponentTemplate({
@@ -421,6 +428,7 @@ export class AlertsService implements IAlertsService {
             kibanaVersion: this.options.kibanaVersion,
             namespace,
             totalFieldsLimit: TOTAL_FIELDS_LIMIT,
+            dataStreamAdapter: this.dataStreamAdapter,
           }),
         }),
       async () =>
@@ -429,6 +437,7 @@ export class AlertsService implements IAlertsService {
           esClient,
           totalFieldsLimit: TOTAL_FIELDS_LIMIT,
           indexPatterns: indexTemplateAndPattern,
+          dataStreamAdapter: this.dataStreamAdapter,
         }),
     ]);
 

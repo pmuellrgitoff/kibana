@@ -12,11 +12,11 @@ import {
   createOrUpdateComponentTemplate,
   createOrUpdateIlmPolicy,
   createOrUpdateIndexTemplate,
+  getDataStreamAdapter,
 } from '@kbn/alerting-plugin/server';
 import { mappingFromFieldMap } from '@kbn/alerting-plugin/common';
 import { DEFAULT_NAMESPACE_STRING } from '@kbn/core-saved-objects-utils-server';
 import type { Logger, ElasticsearchClient } from '@kbn/core/server';
-
 import {
   riskScoreFieldMap,
   getIndexPattern,
@@ -217,6 +217,8 @@ export class RiskEngineDataClient {
           esClient,
           name: ilmPolicyName,
           policy: ilmPolicy,
+          // this will change w/serverless, since it doesn't have ILM
+          dataStreamAdapter: getDataStreamAdapter({ useDataStreamForAlerts: false }),
         }),
         createOrUpdateComponentTemplate({
           logger: this.options.logger,
