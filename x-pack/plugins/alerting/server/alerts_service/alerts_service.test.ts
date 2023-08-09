@@ -17,7 +17,7 @@ import { DEFAULT_NAMESPACE_STRING } from '@kbn/core-saved-objects-utils-server';
 import { UntypedNormalizedRuleType } from '../rule_type_registry';
 import { AlertsClient } from '../alerts_client';
 import { alertsClientMock } from '../alerts_client/alerts_client.mock';
-import { generateAlertingConfig } from '../test_utils';
+import { getDataStreamAdapter } from './lib/data_stream_adapter';
 
 jest.mock('../alerts_client');
 
@@ -231,9 +231,9 @@ describe('Alerts Service', () => {
     pluginStop$.complete();
   });
 
-  for (const useDataStream of [false, true]) {
-    const label = useDataStream ? 'data streams' : 'aliases';
-    const config = generateAlertingConfig(useDataStream);
+  for (const useDataStreamForAlerts of [false, true]) {
+    const label = useDataStreamForAlerts ? 'data streams' : 'aliases';
+    const dataStreamAdapter = getDataStreamAdapter({ useDataStreamForAlerts });
 
     describe(`using ${label} for alert indices`, () => {
       describe('AlertsService()', () => {
@@ -243,7 +243,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -252,8 +252,10 @@ describe('Alerts Service', () => {
           );
 
           expect(alertsService.isInitialized()).toEqual(true);
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
-          if (!useDataStream) {
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           }
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(3);
@@ -267,7 +269,7 @@ describe('Alerts Service', () => {
         });
 
         test('should log error and set initialized to false if adding ILM policy throws error', async () => {
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           clusterClient.ilm.putLifecycle.mockRejectedValueOnce(new Error('fail'));
           const alertsService = new AlertsService({
@@ -275,7 +277,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil('error log called', async () => logger.error.mock.calls.length > 0);
@@ -296,7 +298,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil('error log called', async () => logger.error.mock.calls.length > 0);
@@ -306,7 +308,9 @@ describe('Alerts Service', () => {
             `Error installing component template .alerts-framework-mappings - fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
         });
 
         test('should update index template field limit and retry initialization if creating/updating common component template fails with field limit error', async () => {
@@ -374,7 +378,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -398,7 +402,9 @@ describe('Alerts Service', () => {
             },
           });
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           // 3x for framework, legacy-alert and ecs mappings, then 1 extra time to update component template
           // after updating index template field limit
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
@@ -413,7 +419,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -429,7 +435,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (!useDataStream) {
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           } else {
             expect(clusterClient.ilm.putLifecycle).not.toHaveBeenCalled();
@@ -446,15 +452,19 @@ describe('Alerts Service', () => {
           expect(componentTemplate4.name).toEqual('.alerts-test.alerts-mappings');
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalledWith(
-            getIndexTemplatePutBody({ useDataStream })
+            getIndexTemplatePutBody({ useDataStream: useDataStreamForAlerts })
           );
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 2
+            useDataStreamForAlerts ? 1 : 2
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalledWith({
               expand_wildcards: 'all',
@@ -485,7 +495,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (!useDataStream) {
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           } else {
             expect(clusterClient.ilm.putLifecycle).not.toHaveBeenCalled();
@@ -502,15 +512,22 @@ describe('Alerts Service', () => {
           expect(componentTemplate4.name).toEqual('.alerts-test.alerts-mappings');
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalledWith(
-            getIndexTemplatePutBody({ useLegacyAlerts: true, useDataStream })
+            getIndexTemplatePutBody({
+              useLegacyAlerts: true,
+              useDataStream: useDataStreamForAlerts,
+            })
           );
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 2
+            useDataStreamForAlerts ? 1 : 2
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalledWith({
               expand_wildcards: 'all',
@@ -541,7 +558,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (!useDataStream) {
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           } else {
             expect(clusterClient.ilm.putLifecycle).not.toHaveBeenCalled();
@@ -558,14 +575,18 @@ describe('Alerts Service', () => {
           expect(componentTemplate4.name).toEqual('.alerts-test.alerts-mappings');
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalledWith(
-            getIndexTemplatePutBody({ useEcs: true, useDataStream })
+            getIndexTemplatePutBody({ useEcs: true, useDataStream: useDataStreamForAlerts })
           );
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 2
+            useDataStreamForAlerts ? 1 : 2
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
-          if (useDataStream) {
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenNthCalledWith(1, {
               expand_wildcards: 'all',
@@ -596,7 +617,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (!useDataStream) {
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           } else {
             expect(clusterClient.ilm.putLifecycle).not.toHaveBeenCalled();
@@ -605,9 +626,9 @@ describe('Alerts Service', () => {
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenNthCalledWith(
             1,
-            getIndexTemplatePutBody({ useDataStream })
+            getIndexTemplatePutBody({ useDataStream: useDataStreamForAlerts })
           );
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenNthCalledWith(1, {
               expand_wildcards: 'all',
@@ -629,11 +650,15 @@ describe('Alerts Service', () => {
               name: '.alerts-test.alerts-*',
             });
           }
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
-          expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 2
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
 
           clusterClient.indices.getDataStream.mockImplementationOnce(async () => ({
             data_streams: [],
@@ -651,14 +676,21 @@ describe('Alerts Service', () => {
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenNthCalledWith(
             2,
-            getIndexTemplatePutBody({ namespace: 'another-namespace', useDataStream })
+            getIndexTemplatePutBody({
+              namespace: 'another-namespace',
+              useDataStream: useDataStreamForAlerts,
+            })
           );
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 4);
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 4
+          );
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 4
+            useDataStreamForAlerts ? 1 : 4
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 4);
-          if (useDataStream) {
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 4
+          );
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).toHaveBeenNthCalledWith(1, {
               name: '.alerts-test.alerts-another-namespace',
             });
@@ -685,7 +717,7 @@ describe('Alerts Service', () => {
         });
 
         test('should correctly install resources for context when secondaryAlias is defined', async () => {
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           alertsService.register({ ...TestRegistrationContext, secondaryAlias: 'another.alias' });
           await retryUntil(
@@ -706,7 +738,10 @@ describe('Alerts Service', () => {
           expect(componentTemplate4.name).toEqual('.alerts-test.alerts-mappings');
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalledWith(
-            getIndexTemplatePutBody({ secondaryAlias: 'another.alias', useDataStream })
+            getIndexTemplatePutBody({
+              secondaryAlias: 'another.alias',
+              useDataStream: useDataStreamForAlerts,
+            })
           );
           expect(clusterClient.indices.getAlias).toHaveBeenCalledWith({
             index: '.internal.alerts-test.alerts-default-*',
@@ -737,7 +772,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService, 'empty')) === true
           );
 
-          if (!useDataStream) {
+          if (!useDataStreamForAlerts) {
             expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledWith(IlmPutBody);
           } else {
             expect(clusterClient.ilm.putLifecycle).not.toHaveBeenCalled();
@@ -755,18 +790,18 @@ describe('Alerts Service', () => {
             name: `.alerts-empty.alerts-default-index-template`,
             body: {
               index_patterns: [
-                useDataStream
+                useDataStreamForAlerts
                   ? `.alerts-empty.alerts-default`
                   : `.internal.alerts-empty.alerts-default-*`,
               ],
               composed_of: ['.alerts-framework-mappings'],
-              ...(useDataStream ? { data_stream: { hidden: true } } : {}),
+              ...(useDataStreamForAlerts ? { data_stream: { hidden: true } } : {}),
               priority: 7,
               template: {
                 settings: {
                   auto_expand_replicas: '0-1',
                   hidden: true,
-                  ...(useDataStream
+                  ...(useDataStreamForAlerts
                     ? {}
                     : {
                         'index.lifecycle': {
@@ -795,7 +830,7 @@ describe('Alerts Service', () => {
 
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalledWith(template);
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalledWith({});
             expect(clusterClient.indices.getDataStream).toHaveBeenCalledWith({
               expand_wildcards: 'all',
@@ -818,11 +853,15 @@ describe('Alerts Service', () => {
             });
           }
 
-          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
-          expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
-            useDataStream ? 1 : 2
+          expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
           );
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 1 : 2);
+          expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 1 : 2
+          );
         });
 
         test('should skip initialization if context already exists', async () => {
@@ -871,7 +910,9 @@ describe('Alerts Service', () => {
             `Failed to simulate index template mappings for .alerts-test.alerts-default-index-template; not applying mappings - fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           // putIndexTemplate is skipped but other operations are called as expected
@@ -880,7 +921,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -917,7 +958,9 @@ describe('Alerts Service', () => {
             )
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
@@ -945,7 +988,9 @@ describe('Alerts Service', () => {
             `Error installing index template .alerts-test.alerts-default-index-template - fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -970,12 +1015,14 @@ describe('Alerts Service', () => {
           ).toEqual({ error: 'Failure during installation. fail', result: false });
 
           expect(logger.error).toHaveBeenCalledWith(
-            useDataStream
+            useDataStreamForAlerts
               ? `Error fetching data stream for .alerts-test.alerts-default - fail`
               : `Error fetching concrete indices for .internal.alerts-test.alerts-default-* pattern - fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -997,7 +1044,9 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -1005,7 +1054,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).not.toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).toHaveBeenCalled();
           } else {
             expect(clusterClient.indices.create).toHaveBeenCalled();
@@ -1026,12 +1075,14 @@ describe('Alerts Service', () => {
           ).toEqual({ error: 'Failure during installation. fail', result: false });
 
           expect(logger.error).toHaveBeenCalledWith(
-            useDataStream
+            useDataStreamForAlerts
               ? `Failed to PUT index.mapping.total_fields.limit settings for .alerts-test.alerts-default: fail`
               : `Failed to PUT index.mapping.total_fields.limit settings for alias_1: fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -1039,7 +1090,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).not.toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1058,19 +1109,21 @@ describe('Alerts Service', () => {
           );
 
           expect(logger.error).toHaveBeenCalledWith(
-            useDataStream
+            useDataStreamForAlerts
               ? `Ignored PUT mappings for .alerts-test.alerts-default; error generating simulated mappings: fail`
               : `Ignored PUT mappings for alias_1; error generating simulated mappings: fail`
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).toHaveBeenCalled();
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1094,7 +1147,7 @@ describe('Alerts Service', () => {
             )
           ).toEqual({ error: 'Failure during installation. fail', result: false });
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(logger.error).toHaveBeenCalledWith(
               `Failed to PUT mapping for .alerts-test.alerts-default: fail`
             );
@@ -1102,7 +1155,9 @@ describe('Alerts Service', () => {
             expect(logger.error).toHaveBeenCalledWith(`Failed to PUT mapping for alias_1: fail`);
           }
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -1110,7 +1165,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1131,7 +1186,9 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.cluster.putComponentTemplate).toHaveBeenCalledTimes(4);
           expect(clusterClient.indices.simulateTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
@@ -1139,7 +1196,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).not.toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1150,7 +1207,7 @@ describe('Alerts Service', () => {
 
         test('should log error and set initialized to false if concrete indices exist but none are write index', async () => {
           // not applicable for data streams
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           clusterClient.indices.getAlias.mockImplementationOnce(async () => ({
             '.internal.alerts-test.alerts-default-0001': {
@@ -1199,7 +1256,7 @@ describe('Alerts Service', () => {
 
         test('does not create new index if concrete write index exists', async () => {
           // not applicable for data streams
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           clusterClient.indices.getAlias.mockImplementationOnce(async () => ({
             '.internal.alerts-test.alerts-default-0001': {
@@ -1230,7 +1287,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1241,7 +1298,7 @@ describe('Alerts Service', () => {
 
         test('should log error and set initialized to false if create concrete index throws error', async () => {
           // not applicable for data streams
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           clusterClient.indices.create.mockRejectedValueOnce(new Error('fail'));
           clusterClient.indices.createDataStream.mockRejectedValueOnce(new Error('fail'));
@@ -1266,7 +1323,7 @@ describe('Alerts Service', () => {
           expect(clusterClient.indices.simulateIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putMapping).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1277,7 +1334,7 @@ describe('Alerts Service', () => {
 
         test('should not throw error if create concrete index throws resource_already_exists_exception error and write index already exists', async () => {
           // not applicable for data streams
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           const error = new Error(`fail`) as EsError;
           error.meta = {
@@ -1316,7 +1373,7 @@ describe('Alerts Service', () => {
 
         test('should log error and set initialized to false if create concrete index throws resource_already_exists_exception error and write index does not already exists', async () => {
           // not applicable for data streams
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           const error = new Error(`fail`) as EsError;
           error.meta = {
@@ -1373,7 +1430,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -1431,7 +1488,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -1468,7 +1525,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1478,7 +1535,9 @@ describe('Alerts Service', () => {
 
           // Installing ILM policy failed so no calls to install context-specific resources
           // should be made
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -1502,11 +1561,13 @@ describe('Alerts Service', () => {
             },
           });
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 2);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 2
+          );
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1559,7 +1620,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1569,7 +1630,9 @@ describe('Alerts Service', () => {
 
           // Installing ILM policy failed so no calls to install context-specific resources
           // should be made
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -1613,11 +1676,13 @@ describe('Alerts Service', () => {
             }),
           ]);
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 2);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 2
+          );
           expect(clusterClient.indices.putIndexTemplate).toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).toHaveBeenCalled();
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).not.toHaveBeenCalled();
             expect(clusterClient.indices.getDataStream).toHaveBeenCalled();
           } else {
@@ -1672,7 +1737,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1750,7 +1815,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1845,7 +1910,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1906,7 +1971,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1916,7 +1981,9 @@ describe('Alerts Service', () => {
 
           // Installing ILM policy failed so no calls to install context-specific resources
           // should be made
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -1940,7 +2007,9 @@ describe('Alerts Service', () => {
             },
           });
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 2);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 2
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -1967,7 +2036,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -1977,7 +2046,9 @@ describe('Alerts Service', () => {
 
           // Installing component template failed so no calls to install context-specific resources
           // should be made
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 1);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 1
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -2001,7 +2072,9 @@ describe('Alerts Service', () => {
             },
           });
 
-          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(useDataStream ? 0 : 2);
+          expect(clusterClient.ilm.putLifecycle).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 0 : 2
+          );
           expect(clusterClient.indices.putIndexTemplate).not.toHaveBeenCalled();
           expect(clusterClient.indices.getAlias).not.toHaveBeenCalled();
           expect(clusterClient.indices.putSettings).not.toHaveBeenCalled();
@@ -2035,7 +2108,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
           alertsService.register(TestRegistrationContext);
 
@@ -2076,7 +2149,7 @@ describe('Alerts Service', () => {
 
       describe('retries', () => {
         test('should retry adding ILM policy for transient ES errors', async () => {
-          if (useDataStream) return;
+          if (useDataStreamForAlerts) return;
 
           clusterClient.ilm.putLifecycle
             .mockRejectedValueOnce(new EsErrors.ConnectionError('foo'))
@@ -2087,7 +2160,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2107,7 +2180,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2127,7 +2200,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2155,7 +2228,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2169,7 +2242,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(3);
           } else {
             expect(clusterClient.indices.putSettings).toHaveBeenCalledTimes(4);
@@ -2186,7 +2259,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2200,7 +2273,9 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(useDataStream ? 3 : 4);
+          expect(clusterClient.indices.putMapping).toHaveBeenCalledTimes(
+            useDataStreamForAlerts ? 3 : 4
+          );
         });
 
         test('should retry creating concrete index for transient ES errors', async () => {
@@ -2220,7 +2295,7 @@ describe('Alerts Service', () => {
             elasticsearchClientPromise: Promise.resolve(clusterClient),
             pluginStop$,
             kibanaVersion: '8.8.0',
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil(
@@ -2234,7 +2309,7 @@ describe('Alerts Service', () => {
             async () => (await getContextInitialized(alertsService)) === true
           );
 
-          if (useDataStream) {
+          if (useDataStreamForAlerts) {
             expect(clusterClient.indices.createDataStream).toHaveBeenCalledTimes(3);
           } else {
             expect(clusterClient.indices.create).toHaveBeenCalledTimes(3);
@@ -2254,7 +2329,7 @@ describe('Alerts Service', () => {
             pluginStop$,
             kibanaVersion: '8.8.0',
             timeoutMs: 10,
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil('error logger called', async () => logger.error.mock.calls.length > 0);
@@ -2270,7 +2345,7 @@ describe('Alerts Service', () => {
             pluginStop$,
             kibanaVersion: '8.8.0',
             timeoutMs: 10,
-            config,
+            dataStreamAdapter,
           });
 
           await retryUntil('error logger called', async () => logger.error.mock.calls.length > 0);

@@ -68,7 +68,7 @@ import { ruleRunMetricsStoreMock } from '../lib/rule_run_metrics_store.mock';
 import { AlertsService } from '../alerts_service';
 import { ReplaySubject } from 'rxjs';
 import { IAlertsClient } from '../alerts_client/types';
-import { generateAlertingConfig } from '../test_utils';
+import { getDataStreamAdapter } from '../alerts_service/lib/data_stream_adapter';
 
 jest.mock('uuid', () => ({
   v4: () => '5f6aa57d-3e22-484e-bae8-cbed868f4d28',
@@ -328,7 +328,7 @@ describe('Task Runner', () => {
       pluginStop$: new ReplaySubject(1),
       kibanaVersion: '8.8.0',
       elasticsearchClientPromise: Promise.resolve(clusterClient),
-      config: generateAlertingConfig(),
+      dataStreamAdapter: getDataStreamAdapter({ useDataStreamForAlerts: false }),
     });
     const spy = jest
       .spyOn(alertsService, 'getContextInitializationPromise')
@@ -425,7 +425,7 @@ describe('Task Runner', () => {
       pluginStop$: new ReplaySubject(1),
       kibanaVersion: '8.8.0',
       elasticsearchClientPromise: Promise.resolve(clusterClient),
-      config: generateAlertingConfig(),
+      dataStreamAdapter: getDataStreamAdapter({ useDataStreamForAlerts: false }),
     });
     const spy = jest
       .spyOn(alertsService, 'getContextInitializationPromise')

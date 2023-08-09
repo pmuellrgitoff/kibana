@@ -20,8 +20,7 @@ import {
   getIndexTemplateAndPattern,
 } from './resource_installer_utils';
 import { AlertInstanceContext, AlertInstanceState, IRuleTypeAlerts, RuleAlertData } from '../types';
-import { AlertingConfig } from '../config';
-import { DataStreamAdapter, getDataStreamAdapter } from './lib/data_stream_adapter';
+import { DataStreamAdapter } from './lib/data_stream_adapter';
 import {
   createResourceInstallationHelper,
   errorResult,
@@ -49,9 +48,9 @@ interface AlertsServiceParams {
   logger: Logger;
   pluginStop$: Observable<void>;
   kibanaVersion: string;
-  config: AlertingConfig;
   elasticsearchClientPromise: Promise<ElasticsearchClient>;
   timeoutMs?: number;
+  dataStreamAdapter: DataStreamAdapter;
 }
 
 export interface CreateAlertsClientParams extends LegacyAlertsClientParams {
@@ -122,7 +121,7 @@ export class AlertsService implements IAlertsService {
   constructor(private readonly options: AlertsServiceParams) {
     this.initialized = false;
 
-    this.dataStreamAdapter = getDataStreamAdapter(options.config);
+    this.dataStreamAdapter = options.dataStreamAdapter;
 
     // Kick off initialization of common assets and save the promise
     this.commonInitPromise = this.initializeCommon(this.options.timeoutMs);

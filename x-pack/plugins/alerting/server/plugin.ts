@@ -170,6 +170,7 @@ export interface AlertingPluginsSetup {
   data: DataPluginSetup;
   features: FeaturesPluginSetup;
   unifiedSearch: UnifiedSearchServerPluginSetup;
+  serverless?: {};
 }
 
 export interface AlertingPluginsStart {
@@ -207,7 +208,7 @@ export class AlertingPlugin {
   private inMemoryMetrics: InMemoryMetrics;
   private alertsService: AlertsService | null;
   private pluginStop$: Subject<void>;
-  private dataStreamAdapter: DataStreamAdapter;
+  private dataStreamAdapter?: DataStreamAdapter;
 
   constructor(initializerContext: PluginInitializerContext) {
     this.config = initializerContext.config.get();
@@ -222,7 +223,6 @@ export class AlertingPlugin {
     this.kibanaVersion = initializerContext.env.packageInfo.version;
     this.inMemoryMetrics = new InMemoryMetrics(initializerContext.logger.get('in_memory_metrics'));
     this.pluginStop$ = new ReplaySubject(1);
-    this.dataStreamAdapter = getDataStreamAdapter(this.config);
   }
 
   public setup(
@@ -232,6 +232,8 @@ export class AlertingPlugin {
     this.kibanaBaseUrl = core.http.basePath.publicBaseUrl;
     this.licenseState = new LicenseState(plugins.licensing.license$);
     this.security = plugins.security;
+
+    this.dataStreamAdapter = getDataStreamAdapter({ useDataStreamForAlerts: !!plugins.serverless });
 
     core.capabilities.registerProvider(() => {
       return {
@@ -268,7 +270,7 @@ export class AlertingPlugin {
         logger: this.logger,
         pluginStop$: this.pluginStop$,
         kibanaVersion: this.kibanaVersion,
-        config: this.config,
+        dataStreamAdapter: this.dataStreamAdapter!,
         elasticsearchClientPromise: core
           .getStartServices()
           .then(([{ elasticsearch }]) => elasticsearch.client.asInternalUser),
@@ -419,7 +421,7 @@ export class AlertingPlugin {
           return Promise.resolve(errorResult(`Framework alerts service not available`));
         },
       },
-      getDataStreamAdapter: () => this.dataStreamAdapter,
+      getDataStreamAdapter: () => this.dataStreamAdapter!,
     };
   }
 

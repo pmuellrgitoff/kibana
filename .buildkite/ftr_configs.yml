@@ -351,7 +351,7 @@ enabled:
   - x-pack/test/reporting_functional/reporting_and_timeout.config.ts
   - x-pack/test/rule_registry/security_and_spaces/config_basic.ts
   - x-pack/test/rule_registry/security_and_spaces/config_trial.ts
-  - x-pack/test/rule_registry/spaces_only/config_trial_datastream.ts
+  - x-pack/test/rule_registry/spaces_only/config_basic.ts
   - x-pack/test/rule_registry/spaces_only/config_trial.ts
   - x-pack/test/saved_object_api_integration/security_and_spaces/config_basic.ts
   - x-pack/test/saved_object_api_integration/security_and_spaces/config_trial.ts

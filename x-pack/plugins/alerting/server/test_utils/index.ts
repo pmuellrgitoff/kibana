@@ -47,7 +47,7 @@ export function alertsWithAnyUUID(
   return newAlerts;
 }
 
-export function generateAlertingConfig(useDataStreamForAlerts = false): AlertingConfig {
+export function generateAlertingConfig(): AlertingConfig {
   return {
     healthCheck: {
       interval: '5m',
@@ -70,6 +70,5 @@ export function generateAlertingConfig(useDataStreamForAlerts = false): Alerting
         },
       },
     },
-    useDataStreamForAlerts,
   };
 }
