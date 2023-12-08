@@ -56,7 +56,8 @@ export class DefaultTransformManager implements TransformManager {
   async preview(transformId: string): Promise<void> {
     try {
       await retryTransientEsErrors(
-        () => this.esClient.transform.previewTransform({ transform_id: transformId }),
+        async () => {},
+        // () => this.esClient.transform.previewTransform({ transform_id: transformId }),
         { logger: this.logger }
       );
     } catch (err) {
