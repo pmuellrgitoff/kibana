@@ -21,6 +21,8 @@ import { ServiceParams } from './types';
 describe('Registration', () => {
   const renderedVariables = { body: '' };
   const mockRenderParameterTemplates = jest.fn().mockReturnValue(renderedVariables);
+  const mockDeleteEventHandler = jest.fn();
+  const mockSaveEventHandler = jest.fn();
 
   const connector = {
     id: '.test',
@@ -47,7 +49,11 @@ describe('Registration', () => {
   it('registers the connector correctly', async () => {
     register<TestConfig, TestSecrets>({
       actionTypeRegistry,
-      connector,
+      connector: {
+        ...connector,
+        postDeleteEventHandler: mockDeleteEventHandler,
+        preSaveEventHandler: mockSaveEventHandler,
+      },
       configurationUtilities: mockedActionsConfig,
       logger,
     });
@@ -62,6 +68,8 @@ describe('Registration', () => {
       executor: expect.any(Function),
       getService: expect.any(Function),
       renderParameterTemplates: expect.any(Function),
+      postDeleteEventHandler: expect.any(Function),
+      preSaveEventHandler: expect.any(Function),
     });
   });
 
