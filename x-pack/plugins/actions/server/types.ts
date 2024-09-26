@@ -16,7 +16,6 @@ import {
   SavedObjectReference,
   Logger,
   ISavedObjectsRepository,
-  IScopedClusterClient,
 } from '@kbn/core/server';
 import { AnySchema } from 'joi';
 import { SubActionConnector } from './sub_action_framework/sub_action_connector';
@@ -139,25 +138,25 @@ export type RenderParameterTemplates<Params extends ActionTypeParams> = (
   actionId?: string
 ) => Params;
 
-export interface PreSaveConnectorEventHandlerParams<
+export interface PreSaveConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
   config?: Config;
   secrets?: Secrets;
   logger: Logger;
-  scopedClusterClient?: IScopedClusterClient;
+  request?: KibanaRequest;
   isUpdate?: boolean;
 }
 
-export interface PostDeleteConnectorEventHandlerParams<
+export interface PostDeleteConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
   config?: Config;
   secrets?: Secrets;
   logger: Logger;
-  scopedClusterClient?: IScopedClusterClient;
+  request?: KibanaRequest;
 }
 
 export interface ActionType<
@@ -193,12 +192,8 @@ export interface ActionType<
   renderParameterTemplates?: RenderParameterTemplates<Params>;
   executor: ExecutorType<Config, Secrets, Params, ExecutorResultData>;
   getService?: (params: ServiceParams<Config, Secrets>) => SubActionConnector<Config, Secrets>;
-  preSaveEventHandler?: (
-    params: PreSaveConnectorEventHandlerParams<Config, Secrets>
-  ) => Promise<void>;
-  postDeleteEventHandler?: (
-    params: PreSaveConnectorEventHandlerParams<Config, Secrets>
-  ) => Promise<void>;
+  preSaveHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postDeleteHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
 }
 
 export interface RawAction extends Record<string, unknown> {

@@ -11,7 +11,6 @@ import type { LicenseType } from '@kbn/licensing-plugin/common/types';
 
 import type { Method, AxiosRequestConfig } from 'axios';
 import { KibanaRequest } from '@kbn/core-http-server';
-import { IScopedClusterClient } from '@kbn/core-elasticsearch-server';
 import type { ActionsConfigurationUtilities } from '../actions_config';
 import type {
   ActionTypeParams,
@@ -77,19 +76,19 @@ export type Validators<Config, Secrets> = Array<
   ConfigValidator<Config> | SecretsValidator<Secrets>
 >;
 
-export interface PreSaveConnectorEventHandlerParams<Config, Secrets> {
+export interface PreSaveConnectorHookParams<Config, Secrets> {
   config?: Config;
   secrets?: Secrets;
   logger: Logger;
-  scopedClusterClient?: IScopedClusterClient;
+  request?: KibanaRequest;
   isUpdate?: boolean;
 }
 
-export interface PostDeleteConnectorEventHandlerParams<Config, Secrets> {
+export interface PostDeleteConnectorHookParams<Config, Secrets> {
   config?: Config;
   secrets?: Secrets;
   logger: Logger;
-  scopedClusterClient?: IScopedClusterClient;
+  request?: KibanaRequest;
 }
 
 export interface SubActionConnectorType<Config, Secrets> {
@@ -108,12 +107,8 @@ export interface SubActionConnectorType<Config, Secrets> {
   getKibanaPrivileges?: (args?: {
     params?: { subAction: string; subActionParams: Record<string, unknown> };
   }) => string[];
-  preSaveEventHandler?: (
-    params: PreSaveConnectorEventHandlerParams<Config, Secrets>
-  ) => Promise<void>;
-  postDeleteEventHandler?: (
-    params: PreSaveConnectorEventHandlerParams<Config, Secrets>
-  ) => Promise<void>;
+  preSaveHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postDeleteHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
 }
 
 export interface ExecutorParams extends ActionTypeParams {

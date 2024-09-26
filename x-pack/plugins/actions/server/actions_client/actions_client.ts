@@ -263,13 +263,13 @@ export class ActionsClient {
       })
     );
 
-    if (actionType.preSaveEventHandler) {
+    if (actionType.preSaveHook) {
       try {
-        await actionType.preSaveEventHandler({
+        await actionType.preSaveHook({
           config,
           secrets,
           logger: this.context.logger,
-          scopedClusterClient: this.context.scopedClusterClient,
+          request: this.context.request,
         });
       } catch (error) {
         this.context.auditLogger?.log(
@@ -376,13 +376,13 @@ export class ActionsClient {
       })
     );
 
-    if (actionType.preSaveEventHandler) {
+    if (actionType.preSaveHook) {
       try {
-        await actionType.preSaveEventHandler({
+        await actionType.preSaveHook({
           config,
           secrets,
           logger: this.context.logger,
-          scopedClusterClient: this.context.scopedClusterClient,
+          request: this.context.request,
           isUpdate: true,
         });
       } catch (error) {
@@ -716,12 +716,12 @@ export class ActionsClient {
     const actionType = this.context.actionTypeRegistry.get(actionTypeId);
     const result = await this.context.unsecuredSavedObjectsClient.delete('action', id);
 
-    if (actionType.postDeleteEventHandler) {
+    if (actionType.postDeleteHook) {
       try {
-        await actionType.postDeleteEventHandler({
+        await actionType.postDeleteHook({
           config,
           logger: this.context.logger,
-          scopedClusterClient: this.context.scopedClusterClient,
+          request: this.context.request,
         });
       } catch (error) {
         this.context.auditLogger?.log(
