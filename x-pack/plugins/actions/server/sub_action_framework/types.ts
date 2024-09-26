@@ -19,6 +19,7 @@ import type {
   ValidatorType as ValidationSchema,
 } from '../types';
 import type { SubActionConnector } from './sub_action_connector';
+import type { HookServices } from '../types';
 
 export interface ServiceParams<Config, Secrets> {
   /**
@@ -81,6 +82,7 @@ export interface PreSaveConnectorHookParams<Config, Secrets> {
   secrets?: Secrets;
   logger: Logger;
   request?: KibanaRequest;
+  services: HookServices;
   isUpdate?: boolean;
 }
 
@@ -88,6 +90,7 @@ export interface PostDeleteConnectorHookParams<Config, Secrets> {
   config?: Config;
   secrets?: Secrets;
   logger: Logger;
+  services: HookServices;
   request?: KibanaRequest;
 }
 

@@ -49,6 +49,7 @@ import {
   InMemoryConnector,
   ActionTypeExecutorResult,
   ConnectorTokenClientContract,
+  HookServices,
 } from '../types';
 import { PreconfiguredActionDisabledModificationError } from '../lib/errors/preconfigured_action_disabled_modification';
 import { ExecuteOptions } from '../lib/action_executor';
@@ -264,12 +265,17 @@ export class ActionsClient {
     );
 
     if (actionType.preSaveHook) {
+      const hookServices: HookServices = {
+        scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
+      };
+
       try {
         await actionType.preSaveHook({
           config,
           secrets,
           logger: this.context.logger,
           request: this.context.request,
+          services: hookServices,
         });
       } catch (error) {
         this.context.auditLogger?.log(
@@ -377,12 +383,17 @@ export class ActionsClient {
     );
 
     if (actionType.preSaveHook) {
+      const hookServices: HookServices = {
+        scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
+      };
+
       try {
         await actionType.preSaveHook({
           config,
           secrets,
           logger: this.context.logger,
           request: this.context.request,
+          services: hookServices,
           isUpdate: true,
         });
       } catch (error) {
@@ -716,12 +727,17 @@ export class ActionsClient {
     const actionType = this.context.actionTypeRegistry.get(actionTypeId);
     const result = await this.context.unsecuredSavedObjectsClient.delete('action', id);
 
+    const hookServices: HookServices = {
+      scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
+    };
+
     if (actionType.postDeleteHook) {
       try {
         await actionType.postDeleteHook({
           config,
           logger: this.context.logger,
           request: this.context.request,
+          services: hookServices,
         });
       } catch (error) {
         this.context.auditLogger?.log(

@@ -57,6 +57,10 @@ export interface UnsecuredServices {
   connectorTokenClient: ConnectorTokenClient;
 }
 
+export interface HookServices {
+  scopedClusterClient: ElasticsearchClient;
+}
+
 export interface ActionsApiRequestHandlerContext {
   getActionsClient: () => ActionsClient;
   listTypes: ActionTypeRegistry['list'];
@@ -146,6 +150,7 @@ export interface PreSaveConnectorHookParams<
   secrets?: Secrets;
   logger: Logger;
   request?: KibanaRequest;
+  services: HookServices;
   isUpdate?: boolean;
 }
 
@@ -157,6 +162,7 @@ export interface PostDeleteConnectorHookParams<
   secrets?: Secrets;
   logger: Logger;
   request?: KibanaRequest;
+  services: HookServices;
 }
 
 export interface ActionType<
