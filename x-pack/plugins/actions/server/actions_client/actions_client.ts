@@ -276,6 +276,7 @@ export class ActionsClient {
           logger: this.context.logger,
           request: this.context.request,
           services: hookServices,
+          isUpdate: false,
         });
       } catch (error) {
         this.context.auditLogger?.log(
@@ -723,7 +724,7 @@ export class ActionsClient {
       'action',
       id
     );
-    const { actionTypeId, config } = attributes;
+    const { actionTypeId, config, secrets } = attributes;
     const actionType = this.context.actionTypeRegistry.get(actionTypeId);
     const result = await this.context.unsecuredSavedObjectsClient.delete('action', id);
 
@@ -735,6 +736,7 @@ export class ActionsClient {
       try {
         await actionType.postDeleteHook({
           config,
+          secrets,
           logger: this.context.logger,
           request: this.context.request,
           services: hookServices,
