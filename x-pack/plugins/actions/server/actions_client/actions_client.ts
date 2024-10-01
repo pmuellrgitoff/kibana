@@ -19,6 +19,7 @@ import {
   KibanaRequest,
   SavedObjectsUtils,
   Logger,
+  SavedObject,
 } from '@kbn/core/server';
 import { AuditLogger } from '@kbn/security-plugin/server';
 import { RunNowResult } from '@kbn/task-manager-plugin/server';
@@ -264,11 +265,11 @@ export class ActionsClient {
       })
     );
 
-    if (actionType.preSaveHook) {
-      const hookServices: HookServices = {
-        scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
-      };
+    const hookServices: HookServices = {
+      scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
+    };
 
+    if (actionType.preSaveHook) {
       try {
         await actionType.preSaveHook({
           config,
@@ -290,17 +291,52 @@ export class ActionsClient {
       }
     }
 
-    const result = await this.context.unsecuredSavedObjectsClient.create(
-      'action',
-      {
-        actionTypeId,
-        name,
-        isMissingSecrets: false,
-        config: validatedActionTypeConfig as SavedObjectAttributes,
-        secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-      },
-      { id }
-    );
+    let result: SavedObject<RawAction> | undefined;
+    let error: Error | undefined;
+    let success: boolean = true;
+    try {
+      result = await this.context.unsecuredSavedObjectsClient.create(
+        'action',
+        {
+          actionTypeId,
+          name,
+          isMissingSecrets: false,
+          config: validatedActionTypeConfig as SavedObjectAttributes,
+          secrets: validatedActionTypeSecrets as SavedObjectAttributes,
+        },
+        { id }
+      );
+    } catch (err) {
+      error = err;
+      success = false;
+    }
+
+    if (actionType.postSaveHook) {
+      try {
+        await actionType.postSaveHook({
+          config,
+          secrets,
+          logger: this.context.logger,
+          request: this.context.request,
+          services: hookServices,
+          connectorId: id,
+          isUpdate: false,
+          wasSuccessful: success,
+        });
+      } catch (err) {
+        const label = `connectorId: ${id}; type: ${actionTypeId}`;
+        this.context.logger.error(`postSaveHook error for ${label}: ${err}`);
+      }
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    if (!result) {
+      const label = `type: ${actionTypeId}`;
+      throw new Error(`Failed to create connector for ${label}; unexpected error`);
+    }
 
     return {
       id: result.id,
@@ -383,11 +419,11 @@ export class ActionsClient {
       })
     );
 
-    if (actionType.preSaveHook) {
-      const hookServices: HookServices = {
-        scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
-      };
+    const hookServices: HookServices = {
+      scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
+    };
 
+    if (actionType.preSaveHook) {
       try {
         await actionType.preSaveHook({
           config,
@@ -409,26 +445,34 @@ export class ActionsClient {
       }
     }
 
-    const result = await this.context.unsecuredSavedObjectsClient.create<RawAction>(
-      'action',
-      {
-        ...attributes,
-        actionTypeId,
-        name,
-        isMissingSecrets: false,
-        config: validatedActionTypeConfig as SavedObjectAttributes,
-        secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-      },
-      omitBy(
+    let result: SavedObject<RawAction> | undefined;
+    let error: Error | undefined;
+    let success: boolean = true;
+    try {
+      result = await this.context.unsecuredSavedObjectsClient.create<RawAction>(
+        'action',
         {
-          id,
-          overwrite: true,
-          references,
-          version,
+          ...attributes,
+          actionTypeId,
+          name,
+          isMissingSecrets: false,
+          config: validatedActionTypeConfig as SavedObjectAttributes,
+          secrets: validatedActionTypeSecrets as SavedObjectAttributes,
         },
-        isUndefined
-      )
-    );
+        omitBy(
+          {
+            id,
+            overwrite: true,
+            references,
+            version,
+          },
+          isUndefined
+        )
+      );
+    } catch (err) {
+      error = err;
+      success = false;
+    }
 
     try {
       await this.context.connectorTokenClient.deleteConnectorTokens({ connectorId: id });
@@ -436,6 +480,32 @@ export class ActionsClient {
       this.context.logger.error(
         `Failed to delete auth tokens for connector "${id}" after update: ${e.message}`
       );
+    }
+
+    const label = `connectorId: ${id}; type: ${actionTypeId}`;
+    if (actionType.postSaveHook) {
+      try {
+        await actionType.postSaveHook({
+          config,
+          secrets,
+          logger: this.context.logger,
+          request: this.context.request,
+          services: hookServices,
+          connectorId: id,
+          isUpdate: true,
+          wasSuccessful: success,
+        });
+      } catch (err) {
+        this.context.logger.error(`postSaveHook error for ${label}: ${err}`);
+      }
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    if (!result) {
+      throw new Error(`Failed to update connector for ${label}; unexpected error`);
     }
 
     return {
@@ -740,6 +810,7 @@ export class ActionsClient {
           logger: this.context.logger,
           request: this.context.request,
           services: hookServices,
+          connectorId: id,
         });
       } catch (error) {
         this.context.auditLogger?.log(

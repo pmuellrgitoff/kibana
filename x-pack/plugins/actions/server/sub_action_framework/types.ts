@@ -78,20 +78,32 @@ export type Validators<Config, Secrets> = Array<
 >;
 
 export interface PreSaveConnectorHookParams<Config, Secrets> {
-  config?: Config;
-  secrets?: Secrets;
+  config: Config;
+  secrets: Secrets;
   logger: Logger;
-  request?: KibanaRequest;
+  request: KibanaRequest;
   services: HookServices;
-  isUpdate?: boolean;
+  isUpdate: boolean;
+}
+
+export interface PostSaveConnectorHookParams<Config, Secrets> {
+  config: Config;
+  secrets: Secrets;
+  logger: Logger;
+  request: KibanaRequest;
+  services: HookServices;
+  isUpdate: boolean;
+  connectorId?: string;
+  wasSuccessful: boolean;
 }
 
 export interface PostDeleteConnectorHookParams<Config, Secrets> {
-  config?: Config;
-  secrets?: Secrets;
+  config: Config;
+  secrets: Secrets;
   logger: Logger;
   services: HookServices;
-  request?: KibanaRequest;
+  request: KibanaRequest;
+  connectorId: string;
 }
 
 export interface SubActionConnectorType<Config, Secrets> {
@@ -111,7 +123,8 @@ export interface SubActionConnectorType<Config, Secrets> {
     params?: { subAction: string; subActionParams: Record<string, unknown> };
   }) => string[];
   preSaveHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
-  postDeleteHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postSaveHook?: (params: PostSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postDeleteHook?: (params: PostDeleteConnectorHookParams<Config, Secrets>) => Promise<void>;
 }
 
 export interface ExecutorParams extends ActionTypeParams {

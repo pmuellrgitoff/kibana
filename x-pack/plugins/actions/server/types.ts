@@ -146,23 +146,38 @@ export interface PreSaveConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
-  config?: Config;
-  secrets?: Secrets;
+  config: Config;
+  secrets: Secrets;
   logger: Logger;
-  request?: KibanaRequest;
+  request: KibanaRequest;
   services: HookServices;
-  isUpdate?: boolean;
+  isUpdate: boolean;
+}
+
+export interface PostSaveConnectorHookParams<
+  Config extends ActionTypeConfig = ActionTypeConfig,
+  Secrets extends ActionTypeSecrets = ActionTypeSecrets
+> {
+  config: Config;
+  secrets: Secrets;
+  logger: Logger;
+  request: KibanaRequest;
+  services: HookServices;
+  isUpdate: boolean;
+  connectorId?: string;
+  wasSuccessful: boolean;
 }
 
 export interface PostDeleteConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
-  config?: Config;
-  secrets?: Secrets;
+  config: Config;
+  secrets: Secrets;
   logger: Logger;
-  request?: KibanaRequest;
+  request: KibanaRequest;
   services: HookServices;
+  connectorId: string;
 }
 
 export interface ActionType<
@@ -199,7 +214,8 @@ export interface ActionType<
   executor: ExecutorType<Config, Secrets, Params, ExecutorResultData>;
   getService?: (params: ServiceParams<Config, Secrets>) => SubActionConnector<Config, Secrets>;
   preSaveHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
-  postDeleteHook?: (params: PreSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postSaveHook?: (params: PostSaveConnectorHookParams<Config, Secrets>) => Promise<void>;
+  postDeleteHook?: (params: PostDeleteConnectorHookParams<Config, Secrets>) => Promise<void>;
 }
 
 export interface RawAction extends Record<string, unknown> {

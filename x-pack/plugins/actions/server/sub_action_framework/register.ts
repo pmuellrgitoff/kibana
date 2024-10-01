@@ -43,7 +43,8 @@ export const register = <Config extends ActionTypeConfig, Secrets extends Action
     isSystemActionType: connector.isSystemActionType,
     getService: connector.getService,
     getKibanaPrivileges: connector.getKibanaPrivileges,
-    postDeleteHook: connector.postDeleteHook,
     preSaveHook: connector.preSaveHook,
+    postSaveHook: connector.postSaveHook,
+    postDeleteHook: connector.postDeleteHook,
   });
 };
