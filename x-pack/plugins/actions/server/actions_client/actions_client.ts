@@ -19,7 +19,6 @@ import {
   KibanaRequest,
   SavedObjectsUtils,
   Logger,
-  SavedObject,
 } from '@kbn/core/server';
 import { AuditLogger } from '@kbn/security-plugin/server';
 import { RunNowResult } from '@kbn/task-manager-plugin/server';
@@ -257,14 +256,6 @@ export class ActionsClient {
     }
     this.context.actionTypeRegistry.ensureActionTypeEnabled(actionTypeId);
 
-    this.context.auditLogger?.log(
-      connectorAuditEvent({
-        action: ConnectorAuditAction.CREATE,
-        savedObject: { type: 'action', id },
-        outcome: 'unknown',
-      })
-    );
-
     const hookServices: HookServices = {
       scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
     };
@@ -272,6 +263,7 @@ export class ActionsClient {
     if (actionType.preSaveHook) {
       try {
         await actionType.preSaveHook({
+          connectorId: id,
           config,
           secrets,
           logger: this.context.logger,
@@ -291,51 +283,54 @@ export class ActionsClient {
       }
     }
 
-    let result: SavedObject<RawAction> | undefined;
-    let error: Error | undefined;
-    let success: boolean = true;
-    try {
-      result = await this.context.unsecuredSavedObjectsClient.create(
-        'action',
-        {
-          actionTypeId,
-          name,
-          isMissingSecrets: false,
-          config: validatedActionTypeConfig as SavedObjectAttributes,
-          secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-        },
-        { id }
-      );
-    } catch (err) {
-      error = err;
-      success = false;
-    }
+    this.context.auditLogger?.log(
+      connectorAuditEvent({
+        action: ConnectorAuditAction.CREATE,
+        savedObject: { type: 'action', id },
+        outcome: 'unknown',
+      })
+    );
+
+    const result = await tryCatch(
+      async () =>
+        await this.context.unsecuredSavedObjectsClient.create(
+          'action',
+          {
+            actionTypeId,
+            name,
+            isMissingSecrets: false,
+            config: validatedActionTypeConfig as SavedObjectAttributes,
+            secrets: validatedActionTypeSecrets as SavedObjectAttributes,
+          },
+          { id }
+        )
+    );
+
+    const wasSuccessful = !(result instanceof Error);
+    const label = `connectorId: "${id}"; type: ${actionTypeId}`;
+    const tags = ['post-save-hook', id];
 
     if (actionType.postSaveHook) {
       try {
         await actionType.postSaveHook({
+          connectorId: id,
           config,
           secrets,
           logger: this.context.logger,
           request: this.context.request,
           services: hookServices,
-          connectorId: id,
           isUpdate: false,
-          wasSuccessful: success,
+          wasSuccessful,
         });
       } catch (err) {
-        const label = `connectorId: ${id}; type: ${actionTypeId}`;
-        this.context.logger.error(`postSaveHook error for ${label}: ${err}`);
+        this.context.logger.error(`postSaveHook crearte error for ${label}: ${err.message}`, {
+          tags,
+        });
       }
     }
 
-    if (error) {
-      throw error;
-    }
-
-    if (!result) {
-      const label = `type: ${actionTypeId}`;
-      throw new Error(`Failed to create connector for ${label}; unexpected error`);
+    if (!wasSuccessful) {
+      throw result;
     }
 
     return {
@@ -411,14 +406,6 @@ export class ActionsClient {
 
     this.context.actionTypeRegistry.ensureActionTypeEnabled(actionTypeId);
 
-    this.context.auditLogger?.log(
-      connectorAuditEvent({
-        action: ConnectorAuditAction.UPDATE,
-        savedObject: { type: 'action', id },
-        outcome: 'unknown',
-      })
-    );
-
     const hookServices: HookServices = {
       scopedClusterClient: this.context.scopedClusterClient.asCurrentUser,
     };
@@ -426,6 +413,7 @@ export class ActionsClient {
     if (actionType.preSaveHook) {
       try {
         await actionType.preSaveHook({
+          connectorId: id,
           config,
           secrets,
           logger: this.context.logger,
@@ -445,33 +433,63 @@ export class ActionsClient {
       }
     }
 
-    let result: SavedObject<RawAction> | undefined;
-    let error: Error | undefined;
-    let success: boolean = true;
-    try {
-      result = await this.context.unsecuredSavedObjectsClient.create<RawAction>(
-        'action',
-        {
-          ...attributes,
-          actionTypeId,
-          name,
-          isMissingSecrets: false,
-          config: validatedActionTypeConfig as SavedObjectAttributes,
-          secrets: validatedActionTypeSecrets as SavedObjectAttributes,
-        },
-        omitBy(
+    this.context.auditLogger?.log(
+      connectorAuditEvent({
+        action: ConnectorAuditAction.UPDATE,
+        savedObject: { type: 'action', id },
+        outcome: 'unknown',
+      })
+    );
+
+    const result = await tryCatch(
+      async () =>
+        await this.context.unsecuredSavedObjectsClient.create<RawAction>(
+          'action',
           {
-            id,
-            overwrite: true,
-            references,
-            version,
+            ...attributes,
+            actionTypeId,
+            name,
+            isMissingSecrets: false,
+            config: validatedActionTypeConfig as SavedObjectAttributes,
+            secrets: validatedActionTypeSecrets as SavedObjectAttributes,
           },
-          isUndefined
+          omitBy(
+            {
+              id,
+              overwrite: true,
+              references,
+              version,
+            },
+            isUndefined
+          )
         )
-      );
-    } catch (err) {
-      error = err;
-      success = false;
+    );
+
+    const wasSuccessful = !(result instanceof Error);
+    const label = `connectorId: "${id}"; type: ${actionTypeId}`;
+    const tags = ['post-save-hook', id];
+
+    if (actionType.postSaveHook) {
+      try {
+        await actionType.postSaveHook({
+          connectorId: id,
+          config,
+          secrets,
+          logger: this.context.logger,
+          request: this.context.request,
+          services: hookServices,
+          isUpdate: true,
+          wasSuccessful,
+        });
+      } catch (err) {
+        this.context.logger.error(`postSaveHook update error for ${label}: ${err.message}`, {
+          tags,
+        });
+      }
+    }
+
+    if (!wasSuccessful) {
+      throw result;
     }
 
     try {
@@ -480,32 +498,6 @@ export class ActionsClient {
       this.context.logger.error(
         `Failed to delete auth tokens for connector "${id}" after update: ${e.message}`
       );
-    }
-
-    const label = `connectorId: ${id}; type: ${actionTypeId}`;
-    if (actionType.postSaveHook) {
-      try {
-        await actionType.postSaveHook({
-          config,
-          secrets,
-          logger: this.context.logger,
-          request: this.context.request,
-          services: hookServices,
-          connectorId: id,
-          isUpdate: true,
-          wasSuccessful: success,
-        });
-      } catch (err) {
-        this.context.logger.error(`postSaveHook error for ${label}: ${err}`);
-      }
-    }
-
-    if (error) {
-      throw error;
-    }
-
-    if (!result) {
-      throw new Error(`Failed to update connector for ${label}; unexpected error`);
     }
 
     return {
@@ -805,22 +797,19 @@ export class ActionsClient {
     if (actionType.postDeleteHook) {
       try {
         await actionType.postDeleteHook({
+          connectorId: id,
           config,
           secrets,
           logger: this.context.logger,
           request: this.context.request,
           services: hookServices,
-          connectorId: id,
         });
       } catch (error) {
-        this.context.auditLogger?.log(
-          connectorAuditEvent({
-            action: ConnectorAuditAction.UPDATE,
-            savedObject: { type: 'action', id },
-            error,
-          })
+        const tags = ['post-delete-hook', id];
+        this.context.logger.error(
+          `The post delete hook failed for for connector "${id}": ${error.message}`,
+          { tags }
         );
-        throw error;
       }
     }
     return result;
@@ -1095,5 +1084,13 @@ export class ActionsClient {
       );
       throw err;
     }
+  }
+}
+
+async function tryCatch<T>(fn: () => Promise<T>): Promise<T | Error> {
+  try {
+    return await fn();
+  } catch (err) {
+    return err;
   }
 }

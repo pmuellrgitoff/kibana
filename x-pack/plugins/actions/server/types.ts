@@ -146,6 +146,7 @@ export interface PreSaveConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
@@ -158,13 +159,13 @@ export interface PostSaveConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
   request: KibanaRequest;
   services: HookServices;
   isUpdate: boolean;
-  connectorId?: string;
   wasSuccessful: boolean;
 }
 
@@ -172,12 +173,12 @@ export interface PostDeleteConnectorHookParams<
   Config extends ActionTypeConfig = ActionTypeConfig,
   Secrets extends ActionTypeSecrets = ActionTypeSecrets
 > {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
   request: KibanaRequest;
   services: HookServices;
-  connectorId: string;
 }
 
 export interface ActionType<

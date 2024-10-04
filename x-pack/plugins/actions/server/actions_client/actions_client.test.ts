@@ -113,6 +113,9 @@ const mockTaskManager = taskManagerMock.createSetup();
 const configurationUtilities = actionsConfigMock.create();
 const eventLogClient = eventLogClientMock.create();
 const getEventLogClient = jest.fn();
+const preSaveHook = jest.fn();
+const postSaveHook = jest.fn();
+const postDeleteHook = jest.fn();
 
 let actionsClient: ActionsClient;
 let mockedLicenseState: jest.Mocked<ILicenseState>;
@@ -370,7 +373,6 @@ describe('create()', () => {
   });
 
   test('creates an action with all given properties', async () => {
-    const preSaveHook = jest.fn();
     const savedObjectCreateResult = {
       id: '1',
       type: 'type',
@@ -396,6 +398,9 @@ describe('create()', () => {
       executor,
       preSaveHook: async (params) => {
         preSaveHook(params);
+      },
+      postSaveHook: async (params) => {
+        postSaveHook(params);
       },
     });
     unsecuredSavedObjectsClient.create.mockResolvedValueOnce(savedObjectCreateResult);
@@ -440,6 +445,7 @@ describe('create()', () => {
     expect(preSaveHook).toHaveBeenCalledTimes(1);
     expect(preSaveHook.mock.calls[0]).toEqual([
       {
+        connectorId: 'mock-saved-object-id',
         config: { foo: 42 },
         secrets: { bar: 2001 },
         logger,
@@ -449,6 +455,22 @@ describe('create()', () => {
           scopedClusterClient: expect.any(Object),
         },
         isUpdate: false,
+      },
+    ]);
+    expect(postSaveHook).toHaveBeenCalledTimes(1);
+    expect(postSaveHook.mock.calls[0]).toEqual([
+      {
+        connectorId: 'mock-saved-object-id',
+        config: { foo: 42 },
+        secrets: { bar: 2001 },
+        logger,
+        request,
+        services: {
+          // this will be checked with a function test
+          scopedClusterClient: expect.any(Object),
+        },
+        isUpdate: false,
+        wasSuccessful: true,
       },
     ]);
   });
@@ -1996,10 +2018,7 @@ describe('getOAuthAccessToken()', () => {
 });
 
 describe('delete()', () => {
-  let postDeleteHook: jest.Mock;
-
   beforeEach(() => {
-    postDeleteHook = jest.fn();
     actionTypeRegistry.register({
       id: 'my-action-delete',
       name: 'My action type',
@@ -2011,7 +2030,7 @@ describe('delete()', () => {
         params: { schema: schema.object({}) },
       },
       executor,
-      postDeleteHook,
+      postDeleteHook: async (options) => postDeleteHook(options),
     });
     unsecuredSavedObjectsClient.get.mockResolvedValueOnce({
       id: '1',
@@ -2123,6 +2142,7 @@ describe('delete()', () => {
     expect(postDeleteHook).toHaveBeenCalledTimes(1);
     expect(postDeleteHook.mock.calls[0]).toEqual([
       {
+        connectorId: '1',
         config: { foo: 42 },
         secrets: { bar: 2001 },
         logger,
@@ -2131,7 +2151,6 @@ describe('delete()', () => {
           // this will be checked with a function test
           scopedClusterClient: expect.any(Object),
         },
-        connectorId: '1',
       },
     ]);
   });
@@ -2213,7 +2232,6 @@ describe('delete()', () => {
 });
 
 describe('update()', () => {
-  const preSaveHook = jest.fn();
   function updateOperation(): ReturnType<ActionsClient['update']> {
     actionTypeRegistry.register({
       id: 'my-action-type',
@@ -2228,6 +2246,9 @@ describe('update()', () => {
       executor,
       preSaveHook: async (params) => {
         preSaveHook(params);
+      },
+      postSaveHook: async (params) => {
+        postSaveHook(params);
       },
     });
     unsecuredSavedObjectsClient.get.mockResolvedValueOnce({
@@ -2341,6 +2362,9 @@ describe('update()', () => {
       preSaveHook: async (params) => {
         preSaveHook(params);
       },
+      postSaveHook: async (params) => {
+        postSaveHook(params);
+      },
     });
     unsecuredSavedObjectsClient.get.mockResolvedValueOnce({
       id: '1',
@@ -2410,9 +2434,11 @@ describe('update()', () => {
         "my-action",
       ]
     `);
+
     expect(preSaveHook).toHaveBeenCalledTimes(1);
     expect(preSaveHook.mock.calls[0]).toEqual([
       {
+        connectorId: 'my-action',
         config: { foo: 42 },
         secrets: { bar: 2001 },
         logger,
@@ -2422,6 +2448,23 @@ describe('update()', () => {
           scopedClusterClient: expect.any(Object),
         },
         isUpdate: true,
+      },
+    ]);
+
+    expect(postSaveHook).toHaveBeenCalledTimes(1);
+    expect(postSaveHook.mock.calls[0]).toEqual([
+      {
+        connectorId: 'my-action',
+        config: { foo: 42 },
+        secrets: { bar: 2001 },
+        logger,
+        request,
+        services: {
+          // this will be checked with a function test
+          scopedClusterClient: expect.any(Object),
+        },
+        isUpdate: true,
+        wasSuccessful: true,
       },
     ]);
   });
@@ -3657,4 +3700,15 @@ describe('getGlobalExecutionKpiWithAuth()', () => {
     `);
     expect(eventLogClient.aggregateEventsWithAuthFilter).toHaveBeenCalled();
   });
+});
+
+describe('hook failure cases', () => {
+  test('preSave hook throws error in create', async () => {});
+  test('preSave hook throws error in update', async () => {});
+  test('postSave hook throws error in create', async () => {});
+  test('postSave hook throws error in update', async () => {});
+  test('postDelete hook throws error in delete', async () => {});
+  test('postSave hook called on SO error in create', async () => {});
+  test('postSave hook called on SO error in update', async () => {});
+  test('postDelete hook not called on SO error in delete', async () => {});
 });

@@ -78,6 +78,7 @@ export type Validators<Config, Secrets> = Array<
 >;
 
 export interface PreSaveConnectorHookParams<Config, Secrets> {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
@@ -87,23 +88,23 @@ export interface PreSaveConnectorHookParams<Config, Secrets> {
 }
 
 export interface PostSaveConnectorHookParams<Config, Secrets> {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
   request: KibanaRequest;
   services: HookServices;
   isUpdate: boolean;
-  connectorId?: string;
   wasSuccessful: boolean;
 }
 
 export interface PostDeleteConnectorHookParams<Config, Secrets> {
+  connectorId: string;
   config: Config;
   secrets: Secrets;
   logger: Logger;
   services: HookServices;
   request: KibanaRequest;
-  connectorId: string;
 }
 
 export interface SubActionConnectorType<Config, Secrets> {
